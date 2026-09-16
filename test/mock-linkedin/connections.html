@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Mock LinkedIn — Connections</title>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 16px; }
+  #mock-scroll-container { height: 420px; overflow-y: auto; border: 1px solid #666; padding: 8px; }
+  .mock-connection { list-style: none; margin: 6px 0; padding: 8px; border: 1px solid #ccc; }
+  .mock-connection-name { font-weight: 700; display: block; }
+  .mock-connection-headline { color: #333; display: block; }
+</style>
+</head>
+<body>
+  <h1>My connections (mock)</h1>
+  <p id="mock-stats">loading…</p>
+  <!-- Paginates on scroll: renders 15 at a time, appends near bottom. -->
+  <div id="mock-scroll-container"><ul id="mock-list"></ul></div>
+<script>
+(function () {
+  'use strict';
+  var q = new URLSearchParams(location.search);
+  var COUNT = Math.min(500, Math.max(1, parseInt(q.get('count') || '50', 10)));
+  var FIRST = ['Ava','Liam','Maya','Noah','Priya','Omar','Sofia','Ethan','Yuki','Carlos','Nina','Ravi','Elena','Tom','Aisha','Jonas','Mei','Diego','Sara','Kofi'];
+  var LAST = ['Nguyen','Patel','Garcia','Kim','Haddad','Muller','Rossi','Silva','Tanaka','Okafor','Novak','Sharma','Petrov','Weber','Khan','Larsen','Chen','Morales','Ali','Dubois'];
+  var ROLES = ['Software Engineer','Product Manager','Data Scientist','UX Designer','DevOps Engineer','Engineering Manager','ML Engineer','QA Analyst'];
+  var COMPANIES = ['Acme','Globex','Initech','Umbrella','Hooli','Stark','Wayne','Massive'];
+  var SEPS = [' at ', ' @ ', ' - ', ' · ']; // headline variety exercises the parser (P3/P4)
+  function person(i) {
+    var name = FIRST[i % FIRST.length] + ' ' + LAST[(i * 7) % LAST.length];
+    var role = ROLES[i % ROLES.length];
+    var company = COMPANIES[(i * 3) % COMPANIES.length];
+    var headline = role + SEPS[i % SEPS.length] + company;
+    var urn = 'mock-person-' + (i + 1);
+    var hasThread = (i % 5 === 4) ? 1 : 0; // every 5th has a prior thread (P5 skips)
+    var captcha = (i === 6) ? 1 : 0;       // one captcha fixture (P10 abort test)
+    return { urn: urn, name: name, role: role, company: company, headline: headline, hasThread: hasThread, captcha: captcha };
+  }
+  var ALL = [];
+  for (var i = 0; i < COUNT; i++) ALL.push(person(i));
+  var list = document.getElementById('mock-list');
+  var box = document.getElementById('mock-scroll-container');
+  var rendered = 0;
+  var BATCH = 15;
+  function profileHref(p) {
+    var u = 'profile.html?urn=' + encodeURIComponent(p.urn) +
+      '&name=' + encodeURIComponent(p.name) +
+      '&role=' + encodeURIComponent(p.role) +
+      '&company=' + encodeURIComponent(p.company) +
+      '&hasThread=' + p.hasThread + (p.captcha ? '&captcha=1' : '');
+    return u;
+  }
+  function renderMore() {
+    var frag = document.createDocumentFragment();
+    for (var k = 0; k < BATCH && rendered < ALL.length; k++, rendered++) {
+      var p = ALL[rendered];
+      var li = document.createElement('li');
+      li.className = 'mock-connection';
+      li.setAttribute('data-urn', p.urn);
+      li.setAttribute('data-name', p.name);
+      li.setAttribute('data-headline', p.headline);
+      var a = document.createElement('a');
+      a.className = 'mock-connection-link';
+      a.href = profileHref(p);
+      var nm = document.createElement('span');
+      nm.className = 'mock-connection-name';
+      nm.textContent = p.name;
+      var hl = document.createElement('span');
+      hl.className = 'mock-connection-headline';
+      hl.textContent = p.headline;
+      a.appendChild(nm); a.appendChild(hl);
+      li.appendChild(a);
+      frag.appendChild(li);
+    }
+    list.appendChild(frag);
+    document.getElementById('mock-stats').textContent =
+      'Showing ' + rendered + ' of ' + ALL.length + ' connections (scroll for more)';
+  }
+  box.addEventListener('scroll', function () {
+    if (box.scrollTop + box.clientHeight >= box.scrollHeight - 40) renderMore();
+  });
+  renderMore();
+  window.__mockConnections = ALL; // introspection hook for the test harness
+})();
+</script>
+</body>
+</html>

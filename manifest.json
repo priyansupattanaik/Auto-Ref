@@ -1,0 +1,49 @@
+{
+  "manifest_version": 3,
+  "name": "AutoRef — AI Referral Assistant",
+  "version": "0.1.0",
+  "description": "Personal assistant that drafts and sends referral requests to your own LinkedIn connections. Runs locally. Dry-run by default.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAs/S0WExXkLG2XXugYgeNUe1drx8Gkqg2zGcpemqgAdi2LbigODxlyuVb4LJMs3a+JEPJV29f7TGsLwC5vTSFbmt8+2hqEqrysaqpAKH1IvGjJkinQ3cZpXWuUDm5JIydBasepKp0FsERED9rXyLUfLkdDZsdq1MXZlT2gas7B7e7TUKd10Mo+9MSlj7yJPEmGkxqsrXqr10u8GsuZNUDCXtrMm1hacj8s5ekaMGvFo+HfZpretSztBFobw9iUp9We6itDazIUXOzb28ae0ST5gzeDvlV3R3Ih1N0zn5/tEMooN7STvzx+BW6sLK/sqpkiPIrmRQdwBeV2D5jRV/6HwIDAQAB",
+  "permissions": [
+    "storage",
+    "alarms",
+    "scripting",
+    "tabs",
+    "sidePanel",
+    "nativeMessaging"
+  ],
+  "host_permissions": [
+    "https://www.linkedin.com/*",
+    "https://integrate.api.nvidia.com/*",
+    "http://127.0.0.1/*",
+    "http://localhost/*"
+  ],
+  "background": {
+    "service_worker": "background/service-worker.js",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "AutoRef AI Referral Assistant"
+  },
+  "side_panel": {
+    "default_path": "popup/popup.html"
+  },
+  "options_page": "options/options.html",
+  "content_scripts": [
+    {
+      "matches": ["https://www.linkedin.com/*"],
+      "js": [
+        "lib/delay.js",
+        "lib/storage.js",
+        "lib/template.js",
+        "lib/prompt.js",
+        "content/selectors.js",
+        "content/scrapers.js",
+        "content/history-check.js",
+        "content/messenger.js",
+        "content/main.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}

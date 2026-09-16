@@ -1,0 +1,9 @@
+{
+  "name": "com.autoref.server",
+  "description": "AutoRef Companion Server Host",
+  "path": "d:\\My Creations\\auto-ref\\native-host\\host.exe",
+  "type": "stdio",
+  "allowed_origins": [
+    "chrome-extension://geaooppdjbbaellehbjoiobiegdljoad/"
+  ]
+}

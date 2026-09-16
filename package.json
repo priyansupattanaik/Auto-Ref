@@ -1,0 +1,10 @@
+{
+  "name": "auto-ref",
+  "version": "0.1.0",
+  "description": "AutoRef — AI Referral Assistant Chrome Extension and Companion Server",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node test/harness.mjs"
+  }
+}

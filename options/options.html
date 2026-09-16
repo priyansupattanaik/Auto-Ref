@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AutoRef Options</title>
+  <link rel="stylesheet" href="options.css" />
+</head>
+<body>
+  <main>
+    <h1>AutoRef Options</h1>
+    <div id="dryrun-banner" class="banner hidden">DRY-RUN MODE is ON — no real messages will be sent.</div>
+    <form id="opts">
+      <fieldset><legend>AI</legend>
+        <div id="env-status" class="env-banner">API key &amp; Agent Model are loaded from <code>.env</code> via local server.</div>
+        <label>API Key (loaded from .env)
+          <input type="text" id="apiKey" readonly class="readonly-key" placeholder="Configured in .env file" />
+        </label>
+        <div class="field-hint">API key is loaded from the <code>.env</code> file in your project directory. No frontend entry required.</div>
+        <label>Model
+          <input type="text" id="model" list="agent-models" placeholder="nvidia/llama-3.1-nemotron-70b-instruct" />
+          <datalist id="agent-models">
+            <option value="nvidia/llama-3.1-nemotron-70b-instruct">NVIDIA Llama 3.1 Nemotron 70B (Agent Reasoning)</option>
+            <option value="meta/llama-3.3-70b-instruct">Meta Llama 3.3 70B Instruct</option>
+            <option value="deepseek-ai/deepseek-r1">DeepSeek R1 (Agent Reasoning)</option>
+            <option value="nvidia/mistral-nemo-12b-instruct">Mistral NeMo 12B Instruct</option>
+          </datalist>
+        </label>
+        <label><input type="checkbox" id="aiMode" /> AI mode</label>
+        <label><input type="checkbox" id="mockAI" /> Mock AI (tests)</label>
+        <label>Temperature <input type="number" id="temperature" step="0.1" min="0" max="2" /></label>
+      </fieldset>
+      <fieldset><legend>Content</legend>
+        <label>About me <textarea id="aboutMe"></textarea></label>
+        <label>Custom note <textarea id="customNote"></textarea></label>
+        <label>Tone
+          <select id="tone">
+            <option value="friendly">friendly</option>
+            <option value="formal">formal</option>
+            <option value="concise">concise</option>
+          </select>
+        </label>
+        <label>Target companies (comma-separated) <input type="text" id="targetCompanies" /></label>
+        <label>Target roles (comma-separated) <input type="text" id="targetRoles" /></label>
+        <label>Fallback template <textarea id="fallbackTemplate"></textarea></label>
+        <div id="tpl-preview"></div>
+      </fieldset>
+      <fieldset><legend>Safety</legend>
+        <label><input type="checkbox" id="dryRun" /> Dry-run (default ON)</label>
+        <label><input type="checkbox" id="reviewMode" /> Review mode</label>
+        <label>Daily cap <input type="number" id="dailyCap" min="1" max="500" /></label>
+        <label>Delay min (sec) <input type="number" id="delayMinSec" min="0" /></label>
+        <label>Delay max (sec) <input type="number" id="delayMaxSec" min="0" /></label>
+        <label><input type="checkbox" id="workHoursEnabled" /> Working hours only</label>
+        <label>Start <input type="number" id="workHoursStart" min="0" max="23" /></label>
+        <label>End <input type="number" id="workHoursEnd" min="0" max="23" /></label>
+        <label>Blacklist profiles (comma-separated) <input type="text" id="blacklistProfiles" /></label>
+        <label>Blacklist companies (comma-separated) <input type="text" id="blacklistCompanies" /></label>
+        <label><input type="checkbox" id="mockMode" /> Mock mode (test pages)</label>
+      </fieldset>
+      <button type="submit">Save</button>
+      <button type="button" id="test-ai">Test AI</button>
+      <div id="test-ai-hint">Uses saved settings — press Save first. With Mock AI on, no key or network is needed.</div>
+      <div id="test-ai-out"></div>
+      <fieldset><legend>Danger zone</legend>
+        <button type="button" id="clear-queue">Clear queue</button>
+        <button type="button" id="clear-sent">Clear sentLog</button>
+        <button type="button" id="clear-cache">Clear cache</button>
+      </fieldset>
+      <div id="status"></div>
+    </form>
+  </main>
+  <script src="options.js"></script>
+</body>
+</html>

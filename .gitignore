@@ -1,0 +1,15 @@
+# Environment configuration with private keys
+.env
+.env.local
+.env.*.local
+
+# Internal agent working directories & scratchpads
+.agents/
+
+# Dependency directories
+node_modules/
+
+# OS metadata
+.DS_Store
+Thumbs.db
+*.log

@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AutoRef Sidebar</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <div id="app">
+    <div id="dryrun-banner" class="banner hidden">DRY-RUN MODE — no messages will be sent</div>
+    <header>
+      <h1>AutoRef</h1>
+      <div id="run-status">Status: idle</div>
+    </header>
+
+    <section id="server-panel" class="server-card">
+      <div class="server-header">
+        <span id="server-dot" class="dot orange"></span>
+        <span id="server-label">Server: Checking...</span>
+        <button id="server-toggle-btn" type="button" class="btn-small hidden">Start</button>
+      </div>
+      <div id="server-sub" class="server-sub">Checking local server on port 8787</div>
+      <div id="model-info" class="model-info">Model: <code id="active-model">nvidia/llama-3.1-nemotron-70b-instruct</code></div>
+    </section>
+
+    <button id="start-pause" type="button">Start</button>
+    <button id="attach" type="button" title="Inject AutoRef into the current tab (needed for mock test pages)">Attach to this tab</button>
+    <div id="hint"></div>
+    <section id="counters">
+      <div>Sent today: <span id="c-sent-today">0</span> / <span id="c-cap">15</span></div>
+      <div>Skipped: <span id="c-skipped">0</span> · Failed: <span id="c-failed">0</span></div>
+      <div>AI: <span id="c-ai">0</span> · Fallback: <span id="c-fallback">0</span></div>
+      <div id="current-action">—</div>
+    </section>
+    <section id="review-section" class="hidden">
+      <h2>Pending review</h2>
+      <ul id="review-list"></ul>
+    </section>
+    <footer><a href="#" id="open-options">Options</a></footer>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>

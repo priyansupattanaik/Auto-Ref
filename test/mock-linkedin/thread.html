@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Mock LinkedIn — Thread</title>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 16px; }
+  #mock-thread { border: 1px solid #666; padding: 8px; }
+  .mock-bubble { background: #e8f0fe; border-radius: 8px; padding: 6px 10px; margin: 6px 0; }
+  #mock-compose { border: 1px solid #999; min-height: 40px; padding: 6px; margin: 8px 0; }
+</style>
+</head>
+<body>
+  <!-- Standalone thread fixture: ?count=N&msg=text seeds N bubbles. -->
+  <h1>Message thread (mock)</h1>
+  <div id="mock-thread"></div>
+  <div id="mock-compose" role="textbox" contenteditable="true" aria-label="Write a message"></div>
+  <button id="mock-send" type="button" aria-label="Send now">Send</button>
+<script>
+(function () {
+  'use strict';
+  var q = new URLSearchParams(location.search);
+  var count = Math.max(0, parseInt(q.get('count') || '0', 10));
+  var msg = q.get('msg') || 'Hello (seeded thread message).';
+  var thread = document.getElementById('mock-thread');
+  function addBubble(text) {
+    var b = document.createElement('div');
+    b.className = 'mock-bubble';
+    b.textContent = text;
+    thread.appendChild(b);
+  }
+  for (var i = 0; i < count; i++) addBubble(msg + ' #' + (i + 1));
+  document.getElementById('mock-send').addEventListener('click', function () {
+    var box = document.getElementById('mock-compose');
+    var text = (box.textContent || '').trim();
+    if (!text) return;
+    addBubble(text);
+    box.textContent = '';
+    window.__mockSent = { text: text, at: new Date().toISOString() };
+  });
+})();
+</script>
+</body>
+</html>

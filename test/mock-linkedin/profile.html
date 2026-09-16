@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Mock LinkedIn — Profile</title>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 16px; }
+  #mock-thread { border: 1px solid #666; min-height: 60px; margin: 8px 0; padding: 8px; }
+  .mock-bubble { background: #e8f0fe; border-radius: 8px; padding: 6px 10px; margin: 6px 0; }
+  #mock-compose { border: 1px solid #999; min-height: 40px; padding: 6px; margin: 8px 0; }
+  #mock-captcha { background: #fff3cd; border: 2px solid #b00020; padding: 12px; margin: 8px 0; font-weight: 700; }
+  #mock-activity-warning { background: #f8d7da; border: 1px solid #b00020; padding: 8px; margin: 8px 0; }
+</style>
+</head>
+<body>
+  <!-- Parameterized via ?urn=&name=&role=&company=&hasThread=0|N&captcha=1&warning=1 -->
+  <h1 id="mock-profile-name">…</h1>
+  <div id="mock-profile-headline">…</div>
+  <button id="mock-message-btn" type="button" role="button" aria-label="Message">Message</button>
+  <div id="mock-abort-slot"></div>
+  <div id="mock-thread" hidden></div>
+  <div id="mock-compose" role="textbox" contenteditable="true" aria-label="Write a message"></div>
+  <button id="mock-send" type="button" aria-label="Send now">Send</button>
+<script>
+(function () {
+  'use strict';
+  var q = new URLSearchParams(location.search);
+  var profile = {
+    urn: q.get('urn') || 'mock-unknown',
+    name: q.get('name') || 'Unknown Person',
+    role: q.get('role') || 'Member',
+    company: q.get('company') || 'Unknown Co',
+    hasThread: Math.max(0, parseInt(q.get('hasThread') || '0', 10)),
+    captcha: q.get('captcha') === '1',
+    warning: q.get('warning') === '1',
+  };
+  document.title = 'Mock LinkedIn — ' + profile.name;
+  document.getElementById('mock-profile-name').textContent = profile.name;
+  document.getElementById('mock-profile-headline').textContent = profile.role + ' at ' + profile.company;
+  var slot = document.getElementById('mock-abort-slot');
+  if (profile.captcha) {
+    var c = document.createElement('div');
+    c.id = 'mock-captcha';
+    c.textContent = 'Security verification: please confirm you are human (mock captcha).';
+    slot.appendChild(c);
+  }
+  if (profile.warning) {
+    var w = document.createElement('div');
+    w.id = 'mock-activity-warning';
+    w.textContent = 'Unusual activity detected on your account (mock warning).';
+    slot.appendChild(w);
+  }
+  var thread = document.getElementById('mock-thread');
+  function addBubble(text) {
+    var b = document.createElement('div');
+    b.className = 'mock-bubble';
+    b.textContent = text;
+    thread.appendChild(b);
+    return b;
+  }
+  for (var i = 0; i < profile.hasThread; i++) {
+    addBubble('Prior message ' + (i + 1) + ' with ' + profile.name + ' (seeded fixture).');
+  }
+  // Messaging modal: thread hidden until the Message button opens it.
+  document.getElementById('mock-message-btn').addEventListener('click', function () {
+    thread.hidden = false;
+    document.getElementById('mock-compose').focus();
+  });
+  // Send flow: appends typed text as a thread bubble so VERIFY_SENT can pass realistically.
+  document.getElementById('mock-send').addEventListener('click', function () {
+    var box = document.getElementById('mock-compose');
+    var text = (box.textContent || '').trim();
+    if (!text) return;
+    thread.hidden = false;
+    addBubble(text);
+    box.textContent = '';
+    window.__mockSent = { urn: profile.urn, text: text, at: new Date().toISOString() };
+  });
+  window.__mockProfile = profile; // introspection hook for the test harness
+})();
+</script>
+</body>
+</html>
