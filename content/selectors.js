@@ -152,19 +152,20 @@
     // Tier 1: ARIA labels & data-testid
     const t1 =
       safeQuery(root, 'button[aria-label="Send now"]') ||
-      safeQuery(root, 'button[aria-label*="Send" i]') ||
-      safeQuery(root, 'button[data-testid*="send" i]') ||
-      safeQuery(root, 'button.msg-form__send-button');
+      safeQuery(root, 'button[aria-label^="Send now"]') ||
+      safeQuery(root, 'button.msg-form__send-button') ||
+      safeQuery(root, 'button[data-testid*="send" i]');
     if (t1) return t1;
 
     // Tier 2: Visible text & SVG iconography
     const buttons = safeQueryAll(root, 'button');
     for (const b of buttons) {
+      const aria = (b.getAttribute && b.getAttribute('aria-label')) || '';
+      if (/feedback/i.test(aria)) continue; // Never match 'Send feedback'
       const text = (b.innerText || b.textContent || '').trim();
       if (/^send$/i.test(text)) return b;
       if (safeQuery(b, 'svg[data-test-icon*="send" i]')) return b;
-      const aria = (b.getAttribute && b.getAttribute('aria-label')) || '';
-      if (/send/i.test(aria)) return b;
+      if (/^send(\s+now)?$/i.test(aria)) return b;
     }
 
     // Tier 3: Contextual button inside active container
@@ -191,17 +192,24 @@
       if (mockBtn) return mockBtn;
     }
 
-    // Tier 1: ARIA labels & data-testid
+    // Tier 1: Profile-scoped message buttons (ARIA labels & data-testid)
+    // Never match global navigation elements (like <a aria-label="Messaging"> in #global-nav)
     const t1 =
-      safeQuery(root, 'button[aria-label^="Message"]') ||
-      safeQuery(root, 'button[aria-label*="Message" i]') ||
-      safeQuery(root, 'a[aria-label*="Message" i]') ||
-      safeQuery(root, 'button[data-testid*="message" i]');
+      safeQuery(root, 'main button[aria-label^="Message"], .pv-top-card button[aria-label^="Message"], .pvs-profile-actions button[aria-label^="Message"]') ||
+      safeQuery(root, 'button[aria-label^="Message"]:not(#global-nav *):not(header *)') ||
+      safeQuery(root, 'button[data-testid*="message" i]:not(#global-nav *):not(header *)') ||
+      safeQuery(root, 'button[aria-label="Message"]:not(#global-nav *):not(header *)') ||
+      safeQuery(root, 'button[aria-label^="Message "]');
     if (t1) return t1;
 
-    // Tier 2: Visible text & SVG iconography
-    const candidates = safeQueryAll(root, 'button, a.artdeco-button');
+    // Tier 2: Visible text & SVG iconography (strictly exclude global navbar/header)
+    const candidates = safeQueryAll(root, 'main button, .pv-top-card-v2-ctas button, .pvs-profile-actions button, button');
     for (const c of candidates) {
+      if (c.closest && (c.closest('#global-nav') || c.closest('header.global-nav') || c.closest('nav'))) {
+        continue;
+      }
+      const aria = (c.getAttribute && c.getAttribute('aria-label')) || '';
+      if (/^messaging$/i.test(aria)) continue;
       const text = (c.innerText || c.textContent || '').trim();
       if (/^message$/i.test(text)) return c;
       if (safeQuery(c, 'svg[data-test-icon="send-privately-small"]') || safeQuery(c, 'li-icon[type="send-privately"]')) {

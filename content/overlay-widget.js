@@ -508,11 +508,42 @@
     if (message) setStatus(message);
   }
 
+  function ensureCountdownSection() {
+    if (typeof document === 'undefined') return null;
+    let section = document.getElementById('autoref-countdown-section');
+    if (section) return section;
+
+    let card = document.getElementById(WIDGET_ID);
+    if (!card) {
+      card = render({
+        profile: { name: 'Safety Guard Pacing', role: 'LinkedIn Automation', company: 'AutoRef' },
+        draft: '',
+        status: 'Active Pacing',
+      });
+      if (card) {
+        const draftContainer = card.querySelector ? card.querySelector('.autoref-draft-container') : null;
+        if (draftContainer) draftContainer.style.display = 'none';
+        const actions = card.querySelector ? card.querySelector('.autoref-actions') : null;
+        if (actions) actions.style.display = 'none';
+        const rec = card.querySelector ? card.querySelector('.autoref-recipient') : null;
+        if (rec) rec.style.display = 'none';
+      }
+    }
+    return document.getElementById('autoref-countdown-section');
+  }
+
   function showCountdown(durationSec, labelTemplate, onSkip) {
-    const section = document.getElementById('autoref-countdown-section');
-    const textEl = document.getElementById('autoref-countdown-text');
-    const skipBtn = document.getElementById('autoref-btn-skip-delay');
-    if (!section || !textEl) return;
+    let section = ensureCountdownSection();
+    let textEl = typeof document !== 'undefined' ? document.getElementById('autoref-countdown-text') : null;
+    let skipBtn = typeof document !== 'undefined' ? document.getElementById('autoref-btn-skip-delay') : null;
+
+    if (!section || !textEl) {
+      // If DOM unavailable (e.g. headless / stubbed test environment), resolve safely without hanging
+      setTimeout(() => {
+        if (typeof onSkip === 'function') onSkip();
+      }, Math.min(Math.max(0, (durationSec || 0) * 1000), 50));
+      return;
+    }
 
     if (activeCountdownTimer) {
       clearInterval(activeCountdownTimer);
@@ -528,24 +559,38 @@
     };
     update();
 
+    let finished = false;
+    let backupTimer = null;
+    const finish = () => {
+      if (finished) return;
+      finished = true;
+      if (activeCountdownTimer) {
+        clearInterval(activeCountdownTimer);
+        activeCountdownTimer = null;
+      }
+      if (backupTimer) {
+        clearTimeout(backupTimer);
+        backupTimer = null;
+      }
+      section.style.display = 'none';
+      if (typeof onSkip === 'function') onSkip();
+    };
+
     if (skipBtn) {
-      skipBtn.onclick = () => {
-        if (activeCountdownTimer) {
-          clearInterval(activeCountdownTimer);
-          activeCountdownTimer = null;
-        }
-        section.style.display = 'none';
-        if (typeof onSkip === 'function') onSkip();
-      };
+      skipBtn.onclick = finish;
     }
+
+    if (remaining <= 0) {
+      finish();
+      return;
+    }
+
+    backupTimer = setTimeout(finish, Math.max(10, remaining * 1000));
 
     activeCountdownTimer = setInterval(() => {
       remaining--;
       if (remaining <= 0) {
-        clearInterval(activeCountdownTimer);
-        activeCountdownTimer = null;
-        section.style.display = 'none';
-        if (typeof onSkip === 'function') onSkip();
+        finish();
       } else {
         update();
       }
@@ -554,7 +599,8 @@
 
   function runCountdown(durationSec, labelTemplate, skipBtnText) {
     return new Promise((resolve) => {
-      const skipBtn = document.getElementById('autoref-btn-skip-delay');
+      ensureCountdownSection();
+      const skipBtn = typeof document !== 'undefined' ? document.getElementById('autoref-btn-skip-delay') : null;
       if (skipBtn && skipBtnText) skipBtn.textContent = skipBtnText;
       showCountdown(durationSec, labelTemplate, resolve);
     });

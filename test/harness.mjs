@@ -445,6 +445,18 @@ const PROF = { urn: 'u1', name: 'Ada Lovelace', role: 'SE', company: 'AE' };
   };
   t(NS.findComposeBox() === modalBox, 'Multi-Tier: Compose box found via Tier 3 modal dialog');
 
+  // Anti-false-positive: Send button must NOT match "Send feedback"
+  const feedbackBtn = { tagName: 'BUTTON', innerText: 'Feedback', getAttribute: (a) => (a === 'aria-label' ? 'Send feedback' : null) };
+  docStub.handler = () => null;
+  docStub.handlerAll = (sel) => (sel === 'button' ? [feedbackBtn] : []);
+  t(NS.findSendButton() !== feedbackBtn, 'findSendButton ignores Send feedback button');
+
+  // Anti-false-positive: Message button must NOT match global Messaging nav link
+  const navMessagingLink = { tagName: 'A', getAttribute: (a) => (a === 'aria-label' ? 'Messaging' : null), closest: (s) => s.includes('global-nav') };
+  docStub.handler = () => null;
+  docStub.handlerAll = () => [navMessagingLink];
+  t(NS.findMessageButton() !== navMessagingLink, 'findMessageButton ignores global Messaging nav tab');
+
   // Reset docStub
   docStub.handler = null;
   docStub.handlerAll = null;
@@ -520,6 +532,39 @@ const PROF = { urn: 'u1', name: 'Ada Lovelace', role: 'SE', company: 'AE' };
 
   NS.Overlay.remove();
   t(NS.Overlay.isVisible() === false, 'Overlay removed cleanly');
+
+  // Test runCountdown does not hang when card is not rendered
+  let cdFinished = false;
+  await NS.Overlay.runCountdown(0.01, 'Test: {time}', 'Skip').then(() => { cdFinished = true; });
+  t(cdFinished === true, 'runCountdown resolves cleanly without hanging when card absent');
+  NS.Overlay.remove();
+}
+
+// ---------- Typing Clear Pre-existing Content ----------
+{
+  const el = { tagName: 'DIV', textContent: 'stale previous draft text', focus() {}, dispatchEvent() {} };
+  await NS.humanTyping(el, 'Fresh message', { fast: true });
+  t(el.textContent === 'Fresh message', 'humanTyping clears stale content before typing');
+}
+
+// ---------- State Machine: Awaiting Review Guard ----------
+{
+  await NS.setSettings({ reviewMode: true, mockMode: true, dailyCap: 10 });
+  await NS.setQueue([
+    { urn: 'u1', name: 'Person 1', status: 'awaiting_review', approved: false },
+    { urn: 'u2', name: 'Person 2', status: 'pending', approved: false },
+  ]);
+  await NS.setRunState({ running: true, phase: 'awaiting_review', currentUrn: 'u1' });
+
+  // Running step() must NOT advance to u2 while u1 is awaiting review!
+  const stepRes = await NS.step();
+  t(stepRes === 'stop', 'step() returns stop when in awaiting_review phase');
+
+  const curState = await NS.getRunState();
+  t(curState.phase === 'awaiting_review' && curState.currentUrn === 'u1', 'runState remains parked on u1 in awaiting_review');
+
+  const q = await NS.getQueue();
+  t(q[0].status === 'awaiting_review' && q[1].status === 'pending', 'queue order preserved without premature advancement');
 }
 
 console.log('\nPASS: ' + pass + ' FAIL: ' + fail);

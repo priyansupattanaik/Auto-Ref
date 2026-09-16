@@ -25,6 +25,8 @@
     workHoursEnd: 18,
     delayMinSec: 45,
     delayMaxSec: 120,
+    coffeeBreakInterval: 5,
+    coffeeBreakDurationSec: 900,
     blacklistProfiles: [],
     blacklistCompanies: [],
     mockMode: false,
@@ -108,6 +110,8 @@
     $('dailyCap').value = s.dailyCap;
     $('delayMinSec').value = s.delayMinSec;
     $('delayMaxSec').value = s.delayMaxSec;
+    if ($('coffeeBreakInterval')) $('coffeeBreakInterval').value = s.coffeeBreakInterval || 5;
+    if ($('coffeeBreakDurationSec')) $('coffeeBreakDurationSec').value = s.coffeeBreakDurationSec || 900;
     $('workHoursEnabled').checked = !!s.workHoursEnabled;
     $('workHoursStart').value = s.workHoursStart;
     $('workHoursEnd').value = s.workHoursEnd;
@@ -153,6 +157,8 @@
       dailyCap: Math.max(1, Number($('dailyCap').value) || 15),
       delayMinSec: Math.max(0, Number($('delayMinSec').value) || 0),
       delayMaxSec: Math.max(0, Number($('delayMaxSec').value) || 0),
+      coffeeBreakInterval: Math.max(1, Number($('coffeeBreakInterval')?.value) || prevSettings.coffeeBreakInterval || 5),
+      coffeeBreakDurationSec: Math.max(1, Number($('coffeeBreakDurationSec')?.value) || prevSettings.coffeeBreakDurationSec || 900),
       workHoursEnabled: $('workHoursEnabled').checked,
       workHoursStart: $('workHoursStart').value.trim() !== '' && Number.isFinite(Number($('workHoursStart').value))
         ? Number($('workHoursStart').value)

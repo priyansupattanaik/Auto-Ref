@@ -180,6 +180,40 @@
     return false;
   }
 
+  function renderReviewOverlay(enrichedItem, draftText, currentSettings) {
+    if (!NS.Overlay || !NS.Overlay.render) return;
+    NS.Overlay.render({
+      profile: enrichedItem,
+      draft: draftText,
+      status: 'Awaiting Review',
+      settings: currentSettings,
+      onApprove: async (editedText) => {
+        const chosenDraft = editedText || draftText;
+        await parkDraft(enrichedItem.urn, currentSettings.model, chosenDraft, 'user_edited');
+        const q = await NS.getQueue();
+        await NS.setQueue(
+          updateItem(q, enrichedItem.urn, { status: 'in_progress', reason: 'approved by user', approved: true }),
+        );
+        await NS.setRunState({ running: true, phase: 'typing', currentUrn: enrichedItem.urn });
+        drive();
+      },
+      onRegenerate: async () => {
+        const cache = (await NS.getMsgCache()) || {};
+        delete cache[msgCacheKey(enrichedItem.urn, currentSettings.model)];
+        await NS.setMsgCache(cache);
+        const fresh = await generateFor(enrichedItem, currentSettings);
+        await parkDraft(enrichedItem.urn, currentSettings.model, fresh.message, fresh.source);
+        return fresh.message;
+      },
+      onSkip: async () => {
+        await markSkip(enrichedItem.urn, 'review skipped by user');
+        if (NS.Overlay && NS.Overlay.remove) NS.Overlay.remove();
+        await NS.setRunState({ running: true, phase: 'next', currentUrn: null });
+        drive();
+      },
+    });
+  }
+
   // One step of the machine. Returns 'continue' | 'stop' | 'navigated'.
   async function step() {
     await NS.resetDailyCountersIfNeeded();
@@ -189,7 +223,23 @@
 
     if (!s.runState.running) return 'stop';
     const phase = s.runState.phase;
-    if (phase === 'paused' || phase === 'done' || phase === 'idle') return 'stop';
+    if (phase === 'paused' || phase === 'done' || phase === 'idle' || phase === 'coffee_break' || phase === 'delay_wait') return 'stop';
+
+    // ---- awaiting review guard ----
+    if (phase === 'awaiting_review') {
+      const currentUrn = s.runState.currentUrn;
+      const item = (s.queue || []).find((q) => q && q.urn === currentUrn);
+      if (item && item.status === 'awaiting_review' && !item.approved) {
+        // If overlay was removed or not mounted yet (e.g. reload), re-mount for review
+        if (NS.Overlay && !NS.Overlay.isVisible() && pageUrnMatches(item)) {
+          const cache = (NS.getMsgCache ? await NS.getMsgCache() : null) || {};
+          const key = msgCacheKey(item.urn, settings.model);
+          const draft = (cache[key] && cache[key].message) || '';
+          renderReviewOverlay(item, draft, settings);
+        }
+        return 'stop';
+      }
+    }
 
     // ---- scrape phase (search page only) ----
     if (phase === 'scrape_queue') {
@@ -346,38 +396,7 @@
         updateItem(await NS.getQueue(), item.urn, { status: 'awaiting_review', reason: 'draft parked for review' }),
       );
       await NS.setRunState({ running: true, phase: 'awaiting_review', currentUrn: item.urn });
-      if (NS.Overlay && NS.Overlay.render) {
-        NS.Overlay.render({
-          profile: enriched,
-          draft: gen.message,
-          status: 'Awaiting Review',
-          settings: settings,
-          onApprove: async (editedText) => {
-            const chosenDraft = editedText || gen.message;
-            await parkDraft(item.urn, settings.model, chosenDraft, 'user_edited');
-            const q = await NS.getQueue();
-            await NS.setQueue(
-              updateItem(q, item.urn, { status: 'in_progress', reason: 'approved by user', approved: true }),
-            );
-            await NS.setRunState({ running: true, phase: 'typing', currentUrn: item.urn });
-            drive();
-          },
-          onRegenerate: async () => {
-            const cache = (await NS.getMsgCache()) || {};
-            delete cache[msgCacheKey(item.urn, settings.model)];
-            await NS.setMsgCache(cache);
-            const fresh = await generateFor(enriched, settings);
-            await parkDraft(item.urn, settings.model, fresh.message, fresh.source);
-            return fresh.message;
-          },
-          onSkip: async () => {
-            await markSkip(item.urn, 'review skipped by user');
-            if (NS.Overlay && NS.Overlay.remove) NS.Overlay.remove();
-            await NS.setRunState({ running: true, phase: 'next', currentUrn: null });
-            drive();
-          },
-        });
-      }
+      renderReviewOverlay(enriched, gen.message, settings);
       log('parked draft for review with in-page overlay:', item.urn);
       return 'stop';
     }
@@ -616,6 +635,7 @@
   NS.drive = drive;
   NS.handleCommand = handleCommand;
   NS.pageUrnMatches = pageUrnMatches;
+  NS.renderReviewOverlay = renderReviewOverlay;
   NS.step = step;
 
   if (document.readyState === 'loading') {

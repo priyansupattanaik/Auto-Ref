@@ -34,8 +34,10 @@
     const box = getComposeBox();
     if (!box) return { ok: false, reason: 'compose box missing' };
     try {
-      await NS.humanTyping(box, text, signal);
-      await sleepMs(300);
+      const isMock = NS.S && typeof NS.S === 'function' && NS.S() === NS.SELECTORS?.MOCK;
+      const opts = signal && signal.aborted !== undefined ? { signal: signal, fast: isMock } : Object.assign({ fast: isMock }, signal || {});
+      await NS.humanTyping(box, text, opts);
+      await sleepMs(isMock ? 50 : 300);
       return { ok: true };
     } catch (e) {
       return { ok: false, reason: String((e && e.message) || e) };
