@@ -26,13 +26,13 @@
       right: 24px;
       width: 390px;
       max-width: calc(100vw - 32px);
-      background: rgba(28, 28, 30, 0.88);
+      background: rgba(0, 0, 0, 0.9);
       backdrop-filter: blur(24px);
       -webkit-backdrop-filter: blur(24px);
       color: #f5f5f7;
-      border: 1px solid rgba(255, 255, 255, 0.15);
+      border: 1px solid rgba(255, 255, 255, 0.1);
       border-radius: 16px;
-      box-shadow: 0 20px 48px rgba(0, 0, 0, 0.45), 0 2px 8px rgba(0, 0, 0, 0.2);
+      box-shadow: 0 20px 48px rgba(0, 0, 0, 0.6), 0 2px 8px rgba(0, 0, 0, 0.4);
       font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
       font-size: 13px;
       line-height: 1.45;
@@ -45,14 +45,14 @@
     #${WIDGET_ID}.autoref-minimized {
       width: 290px;
       border-radius: 9999px;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
     }
     #${WIDGET_ID} * {
       box-sizing: border-box;
     }
     #${WIDGET_ID} .autoref-header {
-      background: rgba(255, 255, 255, 0.06);
-      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.04);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
       color: #ffffff;
       padding: 10px 14px;
       display: flex;
@@ -147,8 +147,8 @@
     #${WIDGET_ID} .autoref-recipient {
       margin-bottom: 12px;
       padding: 10px 12px;
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.06);
       border-radius: 10px;
     }
     #${WIDGET_ID} .autoref-recipient-name {
@@ -188,13 +188,13 @@
       min-height: 90px;
       max-height: 180px;
       padding: 10px 12px;
-      border: 1px solid rgba(255, 255, 255, 0.12);
+      border: 1px solid rgba(255, 255, 255, 0.08);
       border-radius: 10px;
       font-family: inherit;
       font-size: 12.5px;
       line-height: 1.45;
       color: #f5f5f7;
-      background: rgba(0, 0, 0, 0.35);
+      background: rgba(20, 20, 20, 0.9);
       resize: vertical;
       transition: border-color 0.18s ease, box-shadow 0.18s ease;
     }
@@ -260,8 +260,8 @@
       color: #f5f5f7;
     }
     #${WIDGET_ID} .autoref-countdown-section {
-      background: rgba(10, 132, 255, 0.12);
-      border: 1px dashed rgba(10, 132, 255, 0.45);
+      background: rgba(10, 132, 255, 0.08);
+      border: 1px dashed rgba(10, 132, 255, 0.35);
       border-radius: 10px;
       padding: 9px 12px;
       margin-top: 10px;
@@ -297,13 +297,13 @@
       transform: translateX(-50%);
       width: 520px;
       max-width: calc(100vw - 32px);
-      background: rgba(36, 12, 14, 0.94);
+      background: rgba(0, 0, 0, 0.95);
       backdrop-filter: blur(24px);
       -webkit-backdrop-filter: blur(24px);
       color: #ff453a;
       border: 2px solid #ff453a;
       border-radius: 16px;
-      box-shadow: 0 20px 60px rgba(255, 69, 58, 0.4);
+      box-shadow: 0 20px 60px rgba(255, 69, 58, 0.5);
       z-index: 2147483647;
       padding: 18px 22px;
       font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
