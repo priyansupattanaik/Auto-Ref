@@ -43,7 +43,11 @@
   "options_page": "options/options.html",
   "content_scripts": [
     {
-      "matches": ["https://www.linkedin.com/*"],
+      "matches": [
+        "https://www.linkedin.com/*",
+        "http://localhost/*",
+        "http://127.0.0.1/*"
+      ],
       "js": [
         "lib/thinking-orb.js",
         "lib/delay.js",

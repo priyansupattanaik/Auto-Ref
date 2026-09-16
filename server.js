@@ -108,6 +108,24 @@ export function createServer(options = {}) {
       return;
     }
 
+    // Static mock LinkedIn files for zero-setup local testing
+    const mockFiles = {
+      '/connections.html': 'connections.html',
+      '/profile.html': 'profile.html',
+      '/thread.html': 'thread.html',
+      '/mock/connections.html': 'connections.html',
+      '/mock/profile.html': 'profile.html',
+      '/mock/thread.html': 'thread.html',
+    };
+    if (req.method === 'GET' && mockFiles[pathname]) {
+      const filePath = path.join(__dirname, 'test', 'mock-linkedin', mockFiles[pathname]);
+      if (fs.existsSync(filePath)) {
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+        fs.createReadStream(filePath).pipe(res);
+        return;
+      }
+    }
+
     // Generate endpoint using .env API key and agent model
     if (pathname === '/api/generate' && req.method === 'POST') {
       let bodyStr = '';

@@ -50,8 +50,15 @@
   function setMockMode(v) {
     _mockMode = !!v;
   }
+  function isMockEnvironment() {
+    if (_mockMode) return true;
+    if (typeof location !== 'undefined' && location && location.hostname) {
+      if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') return true;
+    }
+    return false;
+  }
   function S() {
-    return _mockMode ? SELECTORS.MOCK : SELECTORS.LIVE;
+    return isMockEnvironment() ? SELECTORS.MOCK : SELECTORS.LIVE;
   }
 
   function safeQuery(scope, selector) {

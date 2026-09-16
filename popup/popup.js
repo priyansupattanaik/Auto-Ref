@@ -524,6 +524,10 @@
       await chrome.storage.local.set({ runState: Object.assign({}, s.runState, { running: false }) });
       await notifyTab({ type: 'AUTOREF_CMD', cmd: { cmd: 'pause' } });
     } else {
+      if (!serverStatus.running) {
+        checkServer(true).catch(() => {});
+      }
+
       const actionable = s.queue.some((q) => q && (q.status === 'pending' || q.status === 'in_progress'));
       await chrome.storage.local.set({
         runState: {
@@ -533,10 +537,43 @@
           startedAt: new Date().toISOString(),
         },
       });
-      await notifyTab({ type: 'AUTOREF_CMD', cmd: { cmd: 'start' } });
+
+      const t = await activeTab();
+      const currentUrl = (t && t.url) ? t.url : '';
+      const isMock = !!s.settings.mockMode || /localhost|127\.0\.0\.1/i.test(currentUrl);
+
+      let isAlreadyOnPage = false;
+      if (isMock) {
+        isAlreadyOnPage = /localhost|127\.0\.0\.1/i.test(currentUrl) &&
+          (/connections\.html/i.test(currentUrl) || /profile\.html/i.test(currentUrl) || /thread\.html/i.test(currentUrl));
+      } else {
+        isAlreadyOnPage = /linkedin\.com\/search\/results\/people/i.test(currentUrl) ||
+          /linkedin\.com\/in\//i.test(currentUrl);
+      }
+
+      if (isAlreadyOnPage) {
+        await notifyTab({ type: 'AUTOREF_CMD', cmd: { cmd: 'start' } });
+      } else {
+        const targetUrl = isMock
+          ? `http://127.0.0.1:${serverStatus.port || 8787}/connections.html`
+          : 'https://www.linkedin.com/search/results/people/?network=%5B%22U%22%5D&origin=GLOBAL_SEARCH_HEADER';
+
+        try {
+          if (t && t.id != null && !currentUrl.startsWith('chrome://') && !currentUrl.startsWith('chrome-extension://') && !currentUrl.startsWith('devtools://')) {
+            await chrome.tabs.update(t.id, { url: targetUrl });
+          } else {
+            await chrome.tabs.create({ url: targetUrl, active: true });
+          }
+        } catch (navErr) {
+          console.warn('[AutoRef] tab navigation error:', navErr);
+          try {
+            await chrome.tabs.create({ url: targetUrl, active: true });
+          } catch (_) {}
+        }
+      }
     }
-    const t = await activeTab();
-    render(t && t.url);
+    const curTab = await activeTab();
+    render(curTab && curTab.url);
   }
 
   async function review(urn, action, customText) {
