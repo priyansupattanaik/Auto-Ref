@@ -53,6 +53,7 @@
         "content/scrapers.js",
         "content/history-check.js",
         "content/messenger.js",
+        "content/overlay-widget.js",
         "content/main.js"
       ],
       "run_at": "document_idle"

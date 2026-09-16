@@ -11,11 +11,85 @@ const read = (p) => readFileSync(path.join(ROOT, p), 'utf8');
 const mem = {};
 globalThis.window = globalThis;
 globalThis.location = { href: 'http://localhost:8137/connections.html' };
-const docStub = { handler: null };
+const docStub = { handler: null, elementsById: {} };
+
+class FakeNode {
+  constructor(tag) {
+    this.tagName = tag ? tag.toUpperCase() : 'DIV';
+    this.id = '';
+    this.className = '';
+    this.textContent = '';
+    this.innerText = '';
+    this.value = '';
+    this.children = [];
+    this.parentNode = null;
+    this.style = {};
+    this.listeners = {};
+    this.disabled = false;
+  }
+  appendChild(c) {
+    this.children.push(c);
+    c.parentNode = this;
+    if (c.id) docStub.elementsById[c.id] = c;
+    return c;
+  }
+  removeChild(c) {
+    const idx = this.children.indexOf(c);
+    if (idx !== -1) this.children.splice(idx, 1);
+    if (c.id) delete docStub.elementsById[c.id];
+    c.parentNode = null;
+    return c;
+  }
+  addEventListener(e, fn) { this.listeners[e] = fn; }
+  dispatchEvent(e) { if (this.listeners[e.type]) this.listeners[e.type](e); }
+  setAttribute(k, v) { this[k] = v; }
+  getAttribute(k) { return this[k] || null; }
+  focus() {}
+  click() { if (this.listeners['click']) this.listeners['click']({ target: this }); }
+  getBoundingClientRect() { return { top: 400, left: 100, right: 300, bottom: 440, width: 200, height: 40 }; }
+  querySelector(sel) {
+    for (const c of this.children) {
+      if (c.id && sel.includes(c.id)) return c;
+      if (c.className && c.className.split(/\s+/).some((cls) => cls && sel.includes(cls))) return c;
+      const f = c.querySelector(sel);
+      if (f) return f;
+    }
+    return null;
+  }
+  querySelectorAll(sel) {
+    let res = [];
+    for (const c of this.children) {
+      if (c.id && sel.includes(c.id)) res.push(c);
+      else if (c.className && c.className.split(/\s+/).some((cls) => cls && sel.includes(cls))) res.push(c);
+      else if (sel === 'button' && c.tagName === 'BUTTON') res.push(c);
+      res = res.concat(c.querySelectorAll(sel));
+    }
+    return res;
+  }
+}
+
+const fakeBody = new FakeNode('BODY');
+const fakeHead = new FakeNode('HEAD');
 globalThis.document = {
   readyState: 'complete',
+  body: fakeBody,
+  head: fakeHead,
+  documentElement: fakeBody,
   addEventListener() {},
-  querySelector(sel) { return docStub.handler ? docStub.handler(sel) : null; },
+  createElement(tag) { return new FakeNode(tag); },
+  getElementById(id) { return docStub.elementsById[id] || null; },
+  querySelector(sel) {
+    if (docStub.handler) {
+      const res = docStub.handler(sel);
+      if (res !== undefined) return res;
+    }
+    if (sel.startsWith('#')) return docStub.elementsById[sel.slice(1)] || null;
+    return fakeBody.querySelector(sel);
+  },
+  querySelectorAll(sel) {
+    if (docStub.handlerAll) return docStub.handlerAll(sel);
+    return fakeBody.querySelectorAll(sel);
+  },
   queryCommandSupported() { return false; },
 };
 globalThis.setInterval = () => 0; // poller disabled in harness (keep real setTimeout)
@@ -52,7 +126,7 @@ globalThis.chrome = {
 mem.settings = { mockMode: true }; // mirror real mock-E2E config so boot() pins MOCK selectors
 for (const f of ['lib/delay.js', 'lib/storage.js', 'lib/template.js', 'lib/prompt.js',
   'content/selectors.js', 'content/scrapers.js', 'content/history-check.js',
-  'content/messenger.js', 'content/main.js']) {
+  'content/messenger.js', 'content/overlay-widget.js', 'content/main.js']) {
   eval(read(f)); // eslint-disable-line — loads into window.AutoRef
 }
 const NS = globalThis.AutoRef;
@@ -297,6 +371,155 @@ const PROF = { urn: 'u1', name: 'Ada Lovelace', role: 'SE', company: 'AE' };
   const all = await NS.initStorage();
   t(all.settings.dryRun === true && all.settings.apiKey === '' && Array.isArray(all.queue), 'storage defaults init');
   t(all.runState.phase === 'idle' && all.stats.sentToday === 0, 'runstate/stats defaults');
+  t(all.settings.reviewMode === true, 'default reviewMode is true (Human-in-the-Loop)');
+  t(all.settings.delayMinSec === 45 && all.settings.delayMaxSec === 120, 'default Gaussian delay range 45-120s');
+  t(all.settings.coffeeBreakInterval === 5, 'default coffee break interval is 5 sends');
+  t(all.settings.coffeeBreakDurationSec === 900, 'default coffee break duration is 15 minutes (900s)');
+  t(all.stats.sendsSinceBreak === 0, 'default sendsSinceBreak starts at 0');
+}
+
+// ---------- Gaussian / Natural Delay ----------
+{
+  let minObs = 999, maxObs = -999, sum = 0;
+  const N = 100;
+  for (let i = 0; i < N; i++) {
+    const val = NS.naturalRandomSec(45, 120);
+    if (val < minObs) minObs = val;
+    if (val > maxObs) maxObs = val;
+    sum += val;
+  }
+  const mean = sum / N;
+  t(minObs >= 45 && maxObs <= 120, 'Gaussian delay clamped in [45, 120]');
+  t(mean >= 65 && mean <= 100, 'Gaussian delay mean centered near 82.5s');
+
+  let ticks = [];
+  await NS.countdownDelay(2, (rem) => ticks.push(rem), { aborted: true });
+  t(ticks.length === 0, 'countdownDelay respects aborted signal');
+}
+
+// ---------- Typing Jitter & Typo Recovery ----------
+{
+  // Test typo recovery: force typoChance = 1
+  const el = { tagName: 'DIV', textContent: '', focus() {}, dispatchEvent() {} };
+  await NS.humanTyping(el, 'A', { typoChance: 1, fast: true });
+  t(el.textContent === 'A', 'humanTyping with typo recovers to exact character');
+}
+
+// ---------- Multi-Tiered Resilient Selector Engine ----------
+{
+  NS.setMockMode(false);
+  // Tier 1: ARIA labels and data-testid
+  const fakeCompose = { tagName: 'DIV', getAttribute: () => 'Write a message' };
+  docStub.handler = (sel) => {
+    if (sel.includes('data-testid') && sel.includes('compose')) return fakeCompose;
+    return null;
+  };
+  t(NS.findComposeBox() === fakeCompose, 'Multi-Tier: Compose box found via Tier 1 data-testid');
+
+  // Tier 2: Visible text matching
+  const sendBtnObj = { tagName: 'BUTTON', innerText: 'Send', getAttribute: () => null };
+  docStub.handler = () => null;
+  docStub.handlerAll = (sel) => (sel === 'button' ? [sendBtnObj] : []);
+  t(NS.findSendButton() === sendBtnObj, 'Multi-Tier: Send button found via Tier 2 visible text');
+
+  // Tier 3: Contextual docked chat window
+  const dockedBox = { tagName: 'DIV', textContent: 'in-dock' };
+  const dockedContainer = {
+    querySelector: (s) => (s.includes('contenteditable') ? dockedBox : null),
+  };
+  docStub.handler = (sel) => {
+    if (sel.includes('.msg-overlay-conversation-bubble')) return dockedContainer;
+    return null;
+  };
+  docStub.handlerAll = null;
+  t(NS.findComposeBox() === dockedBox, 'Multi-Tier: Compose box found via Tier 3 docked chat window');
+
+  // Tier 3: Contextual modal dialog
+  const modalBox = { tagName: 'DIV', textContent: 'in-modal' };
+  const modalContainer = {
+    querySelector: (s) => (s.includes('contenteditable') ? modalBox : null),
+  };
+  docStub.handler = (sel) => {
+    if (sel.includes('div[role="dialog"]')) return modalContainer;
+    return null;
+  };
+  t(NS.findComposeBox() === modalBox, 'Multi-Tier: Compose box found via Tier 3 modal dialog');
+
+  // Reset docStub
+  docStub.handler = null;
+  docStub.handlerAll = null;
+  NS.setMockMode(true);
+}
+
+// ---------- Emergency Halt Detection ----------
+{
+  docStub.handler = (sel) => {
+    if (sel.includes('checkpoint')) return {};
+    return null;
+  };
+  const abortChk = NS.detectAbortSignals();
+  t(abortChk.checkpoint === true && abortChk.any === true, 'detectAbortSignals catches security checkpoint');
+  docStub.handler = null;
+}
+
+// ---------- Floating In-Page Overlay Widget ----------
+{
+  t(typeof NS.Overlay.countWords === 'function', 'Overlay has countWords');
+  t(NS.Overlay.countWords('  Hello   world, this is   AutoRef! ') === 5, 'countWords computes accurate word count');
+  t(NS.Overlay.countWords('') === 0, 'countWords handles empty text');
+  t(NS.Overlay.formatTime(45) === '45s', 'formatTime under 60s');
+  t(NS.Overlay.formatTime(125) === '2:05', 'formatTime minutes');
+
+  let approvedDraft = '';
+  let regenerated = false;
+  let skipped = false;
+
+  const card = NS.Overlay.render({
+    profile: { name: 'Grace Hopper', role: 'Computer Scientist', company: 'Navy' },
+    draft: 'Hi Grace, great work on compilers!',
+    status: 'Awaiting Review',
+    onApprove: (t) => { approvedDraft = t; },
+    onRegenerate: async () => { regenerated = true; return 'Regenerated draft message!'; },
+    onSkip: () => { skipped = true; },
+  });
+
+  t(card && card.id === 'autoref-inpage-overlay', 'Overlay rendered card with expected ID');
+  t(NS.Overlay.isVisible() === true, 'Overlay isVisible true');
+  t(NS.Overlay.getDraftText() === 'Hi Grace, great work on compilers!', 'Overlay gets draft text');
+
+  // Test live editing
+  const ta = document.getElementById('autoref-draft-input');
+  t(!!ta, 'Overlay textarea exists in DOM');
+  ta.value = 'Hi Grace, updated custom draft text here!';
+  ta.dispatchEvent(new Event('input'));
+  const wc = document.getElementById('autoref-word-count');
+  t(wc && wc.textContent.includes('7 words'), 'Live word count updates on input');
+
+  // Test Approve button
+  const approveBtn = document.getElementById('autoref-btn-approve');
+  approveBtn.click();
+  t(approvedDraft === 'Hi Grace, updated custom draft text here!', 'Approve button sends updated text to callback');
+
+  // Test Regenerate button
+  const regenBtn = document.getElementById('autoref-btn-regenerate');
+  regenBtn.click();
+  t(regenerated === true, 'Regenerate button triggers callback');
+
+  // Test Skip button
+  const skipBtn = document.getElementById('autoref-btn-skip');
+  skipBtn.click();
+  t(skipped === true, 'Skip button triggers callback');
+
+  // Test Emergency Halt Alert & Sound
+  let alertDismissed = false;
+  const alertEl = NS.Overlay.showEmergencyAlert('Mock Captcha Detected', () => { alertDismissed = true; });
+  t(alertEl && alertEl.id === 'autoref-emergency-halt', 'showEmergencyAlert creates alert element');
+  const disBtn = alertEl.querySelector('.autoref-em-btn');
+  if (disBtn) disBtn.click();
+  t(alertDismissed === true, 'Emergency alert dismiss button works');
+
+  NS.Overlay.remove();
+  t(NS.Overlay.isVisible() === false, 'Overlay removed cleanly');
 }
 
 console.log('\nPASS: ' + pass + ' FAIL: ' + fail);

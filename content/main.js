@@ -16,7 +16,7 @@
   const PHASES = [
     'idle', 'scrape_queue', 'next', 'open_profile', 'extract_info',
     'open_message_modal', 'generate_message', 'awaiting_review',
-    'typing', 'sending', 'verify', 'delay_wait', 'paused', 'done',
+    'typing', 'sending', 'verify', 'delay_wait', 'coffee_break', 'paused', 'done',
   ];
   const TERMINAL_ITEM = (st) =>
     st === 'done' || st === 'done(dry)' || st === 'skipped' || st === 'failed' || st === 'awaiting_review';
@@ -300,9 +300,16 @@
     }
 
     const abort = NS.detectAbortSignals();
-    if (abort.captcha || abort.warning) {
-      const why = abort.captcha ? 'captcha/verification wall' : 'unusual-activity warning';
+    if (abort.captcha || abort.warning || abort.checkpoint || abort.any) {
+      const why = abort.captcha
+        ? 'captcha/verification wall'
+        : abort.checkpoint
+        ? 'security checkpoint / verification'
+        : 'unusual-activity warning';
       await NS.setQueue(updateItem(await NS.getQueue(), item.urn, { reason: 'aborted: ' + why }));
+      if (NS.Overlay && NS.Overlay.showEmergencyAlert) {
+        NS.Overlay.showEmergencyAlert(why);
+      }
       await pauseRun(why, item.urn);
       return 'stop';
     }
@@ -338,9 +345,41 @@
       await NS.setQueue(
         updateItem(await NS.getQueue(), item.urn, { status: 'awaiting_review', reason: 'draft parked for review' }),
       );
-      await NS.setRunState({ phase: 'next', currentUrn: null });
-      log('parked draft for review:', item.urn);
-      return 'continue';
+      await NS.setRunState({ running: true, phase: 'awaiting_review', currentUrn: item.urn });
+      if (NS.Overlay && NS.Overlay.render) {
+        NS.Overlay.render({
+          profile: enriched,
+          draft: gen.message,
+          status: 'Awaiting Review',
+          settings: settings,
+          onApprove: async (editedText) => {
+            const chosenDraft = editedText || gen.message;
+            await parkDraft(item.urn, settings.model, chosenDraft, 'user_edited');
+            const q = await NS.getQueue();
+            await NS.setQueue(
+              updateItem(q, item.urn, { status: 'in_progress', reason: 'approved by user', approved: true }),
+            );
+            await NS.setRunState({ running: true, phase: 'typing', currentUrn: item.urn });
+            drive();
+          },
+          onRegenerate: async () => {
+            const cache = (await NS.getMsgCache()) || {};
+            delete cache[msgCacheKey(item.urn, settings.model)];
+            await NS.setMsgCache(cache);
+            const fresh = await generateFor(enriched, settings);
+            await parkDraft(item.urn, settings.model, fresh.message, fresh.source);
+            return fresh.message;
+          },
+          onSkip: async () => {
+            await markSkip(item.urn, 'review skipped by user');
+            if (NS.Overlay && NS.Overlay.remove) NS.Overlay.remove();
+            await NS.setRunState({ running: true, phase: 'next', currentUrn: null });
+            drive();
+          },
+        });
+      }
+      log('parked draft for review with in-page overlay:', item.urn);
+      return 'stop';
     }
 
     if (settings.dryRun) {
@@ -354,8 +393,36 @@
       };
       await NS.setSentLog(logData);
       await NS.setQueue(updateItem(await NS.getQueue(), item.urn, { status: 'done(dry)', reason: 'dry-run (not sent)' }));
-      await NS.setRunState({ phase: 'next', currentUrn: null });
+      const dryStats = await NS.getStats();
+      dryStats.sendsSinceBreak = (dryStats.sendsSinceBreak || 0) + 1;
+      await NS.setStats(dryStats);
+
+      if (NS.Overlay && NS.Overlay.setStatus) NS.Overlay.setStatus('Dry-Run Verified (Simulated)');
       log('dry-run logged (NOT sent):', item.urn);
+
+      // Check coffee break pacing after sends
+      if (dryStats.sendsSinceBreak >= (settings.coffeeBreakInterval || 5)) {
+        dryStats.sendsSinceBreak = 0;
+        await NS.setStats(dryStats);
+        log('☕ Coffee break triggered after ' + (settings.coffeeBreakInterval || 5) + ' sends.');
+        await NS.setRunState({ running: true, phase: 'coffee_break', currentUrn: null });
+        const breakSec = settings.mockMode ? 2 : (settings.coffeeBreakDurationSec || 900);
+        if (NS.Overlay && NS.Overlay.runCountdown) {
+          await NS.Overlay.runCountdown(breakSec, '☕ 15-min Coffee Break: {time} remaining', 'Resume Now');
+        } else {
+          await NS.sleep(breakSec * 1000);
+        }
+      }
+
+      await NS.setRunState({ running: true, phase: 'delay_wait', currentUrn: null });
+      const delaySec = settings.mockMode ? 1 : (NS.naturalRandomSec ? NS.naturalRandomSec(settings.delayMinSec, settings.delayMaxSec) : 45);
+      if (NS.Overlay && NS.Overlay.runCountdown) {
+        await NS.Overlay.runCountdown(delaySec, '⏱️ Next profile in {time}', 'Skip Delay');
+        if (NS.Overlay.remove) NS.Overlay.remove();
+      } else {
+        await NS.sleep(delaySec * 1000);
+      }
+      await NS.setRunState({ phase: 'next', currentUrn: null });
       return 'continue';
     }
 
@@ -365,6 +432,7 @@
       return 'stop';
     }
     await NS.setRunState({ running: true, phase: 'typing', currentUrn: item.urn });
+    if (NS.Overlay && NS.Overlay.setStatus) NS.Overlay.setStatus('Typing message...');
     const typed = await NS.typeMessage(gen.message);
     if (!typed.ok) {
       await markFailed(item.urn, 'typing failed: ' + typed.reason);
@@ -372,6 +440,7 @@
       return 'continue';
     }
     await NS.setRunState({ running: true, phase: 'sending', currentUrn: item.urn });
+    if (NS.Overlay && NS.Overlay.setStatus) NS.Overlay.setStatus('Sending...');
     const sent = await NS.clickSend(settings); // refuses when dryRun (defense in depth)
     if (!sent.ok) {
       await markFailed(item.urn, 'send failed: ' + sent.reason);
@@ -379,6 +448,7 @@
       return 'continue';
     }
     await NS.setRunState({ running: true, phase: 'verify', currentUrn: item.urn });
+    if (NS.Overlay && NS.Overlay.setStatus) NS.Overlay.setStatus('Verifying send in thread...');
     const ver = await NS.verifySent(gen.message);
     if (!ver.ok) {
       await markFailed(item.urn, 'verify failed: ' + ver.reason);
@@ -397,12 +467,34 @@
     const stats2 = await NS.getStats();
     stats2.sentToday = (stats2.sentToday || 0) + 1;
     stats2.sentTotal = (stats2.sentTotal || 0) + 1;
+    stats2.sendsSinceBreak = (stats2.sendsSinceBreak || 0) + 1;
     await NS.setStats(stats2);
     await NS.setQueue(updateItem(await NS.getQueue(), item.urn, { status: 'done', reason: '' }));
+    if (NS.Overlay && NS.Overlay.setStatus) NS.Overlay.setStatus('Verified & Sent');
     log('sent + verified:', item.urn);
 
+    // Check coffee break pacing after sends
+    if (stats2.sendsSinceBreak >= (settings.coffeeBreakInterval || 5)) {
+      stats2.sendsSinceBreak = 0;
+      await NS.setStats(stats2);
+      log('☕ Coffee break triggered after ' + (settings.coffeeBreakInterval || 5) + ' sends.');
+      await NS.setRunState({ running: true, phase: 'coffee_break', currentUrn: null });
+      const breakSec = settings.mockMode ? 2 : (settings.coffeeBreakDurationSec || 900);
+      if (NS.Overlay && NS.Overlay.runCountdown) {
+        await NS.Overlay.runCountdown(breakSec, '☕ 15-min Coffee Break: {time} remaining', 'Resume Now');
+      } else {
+        await NS.sleep(breakSec * 1000);
+      }
+    }
+
     await NS.setRunState({ running: true, phase: 'delay_wait', currentUrn: null });
-    await NS.randomDelay(settings.delayMinSec, settings.delayMaxSec);
+    const delaySecReal = settings.mockMode ? 1 : (NS.naturalRandomSec ? NS.naturalRandomSec(settings.delayMinSec, settings.delayMaxSec) : 45);
+    if (NS.Overlay && NS.Overlay.runCountdown) {
+      await NS.Overlay.runCountdown(delaySecReal, '⏱️ Next profile in {time}', 'Skip Delay');
+      if (NS.Overlay.remove) NS.Overlay.remove();
+    } else {
+      await NS.sleep(delaySecReal * 1000);
+    }
     const after = await NS.getAll();
     if (!after.runState.running) return 'stop';
     await NS.setRunState({ phase: 'next', currentUrn: null });

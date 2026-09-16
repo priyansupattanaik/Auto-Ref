@@ -12,18 +12,19 @@
   }
 
   function getComposeBox() {
-    return document.querySelector(NS.S().composeBox);
+    return (NS.findComposeBox ? NS.findComposeBox() : null) || document.querySelector(NS.S().composeBox);
   }
   function getSendButton() {
-    return document.querySelector(NS.S().sendButton);
+    return (NS.findSendButton ? NS.findSendButton() : null) || document.querySelector(NS.S().sendButton);
   }
   function getMessageButton() {
-    return document.querySelector(NS.S().messageButton);
+    return (NS.findMessageButton ? NS.findMessageButton() : null) || document.querySelector(NS.S().messageButton);
   }
 
   async function openMessageModal() {
     const btn = getMessageButton();
     if (!btn) return { ok: false, reason: 'no message button' };
+    if (NS.smoothScrollTo) await NS.smoothScrollTo(btn);
     btn.click();
     await sleepMs(800);
     return { ok: true };
@@ -50,6 +51,7 @@
     if (btn.disabled || btn.getAttribute('aria-disabled') === 'true') {
       return { ok: false, reason: 'send button disabled' };
     }
+    if (NS.smoothScrollTo) await NS.smoothScrollTo(btn);
     btn.click();
     await sleepMs(900);
     return { ok: true };
@@ -79,15 +81,34 @@
     }
   }
 
-  // Abort-signal detection (P10): captcha / unusual-activity walls => PAUSE + notify.
+  // Abort-signal detection (P10): captcha / verification checkpoints / unusual-activity warnings
   function detectAbortSignals() {
     try {
       const S = NS.S();
-      const captcha = !!document.querySelector(S.captcha);
-      const warning = !!document.querySelector(S.activityWarning);
-      return { captcha: captcha, warning: warning };
+      const captcha = !!(
+        document.querySelector(S.captcha) ||
+        document.querySelector('iframe[src*="captcha" i], iframe[title*="recaptcha" i]') ||
+        document.querySelector('#captcha-internal, form#captcha-challenge, .checkpoint-challenge') ||
+        document.querySelector('[data-testid*="captcha" i]') ||
+        (document.title && /captcha/i.test(document.title))
+      );
+      const checkpoint = !!(
+        document.querySelector('[data-testid*="checkpoint" i], input[name="pin"], #email-pin-challenge, form[action*="checkpoint"]') ||
+        (document.title && /security verification|checkpoint/i.test(document.title))
+      );
+      const warning = !!(
+        document.querySelector(S.activityWarning) ||
+        document.querySelector('[data-testid="unusual-activity"], .artdeco-global-alert--error') ||
+        document.querySelector('.account-restricted-alert, [data-testid*="restricted"]')
+      );
+      return {
+        captcha: captcha,
+        checkpoint: checkpoint,
+        warning: warning,
+        any: captcha || checkpoint || warning,
+      };
     } catch (e) {
-      return { captcha: false, warning: false };
+      return { captcha: false, checkpoint: false, warning: false, any: false };
     }
   }
 

@@ -9,7 +9,7 @@
   const CONTENT_FILES = [
     'lib/delay.js', 'lib/storage.js', 'lib/template.js', 'lib/prompt.js',
     'content/selectors.js', 'content/scrapers.js', 'content/history-check.js',
-    'content/messenger.js', 'content/main.js',
+    'content/messenger.js', 'content/overlay-widget.js', 'content/main.js',
   ];
 
   let serverStatus = {

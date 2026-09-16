@@ -18,6 +18,7 @@ const files = [
   'content/history-check.js',
   'content/main.js',
   'content/messenger.js',
+  'content/overlay-widget.js',
   'content/scrapers.js',
   'content/selectors.js',
   'options/options.js',
