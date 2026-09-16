@@ -1,129 +1,539 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>AutoRef Options</title>
+  <title>AutoRef — System Settings</title>
   <link rel="icon" type="image/png" href="../icons/icon32.png" />
   <link rel="stylesheet" href="options.css" />
 </head>
 <body>
-  <main>
-    <div class="brand-header">
-      <img src="../icons/icon48.png" alt="AutoRef Logo" class="brand-logo" />
-      <div>
-        <h1>AutoRef Options</h1>
-        <div class="brand-subtitle">AI referral assistant settings</div>
+  <div class="macos-window">
+    <!-- macOS Window Header Bar -->
+    <header class="window-titlebar">
+      <div class="traffic-lights" aria-hidden="true">
+        <span class="traffic-dot close"></span>
+        <span class="traffic-dot minimize"></span>
+        <span class="traffic-dot maximize"></span>
       </div>
+
+      <div class="window-brand">
+        <img src="../icons/icon32.png" alt="AutoRef Logo" class="brand-logo" />
+        <span class="window-title">AutoRef System Settings</span>
+      </div>
+
+      <div class="window-actions">
+        <!-- 1-Click Sun/Moon Theme Switcher -->
+        <button id="theme-toggle" class="icon-glass-btn" type="button" title="Toggle Theme (Light / Dark)" aria-label="Toggle Theme">
+          <svg class="theme-icon sun-icon hidden" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>
+          </svg>
+          <svg class="theme-icon moon-icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Dry-run Banner -->
+    <div id="dryrun-banner" class="banner hidden">
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg>
+      <span>DRY-RUN MODE IS ON — Messages will be simulated and logged, but never sent to LinkedIn.</span>
     </div>
-    <div id="dryrun-banner" class="banner hidden">DRY-RUN MODE is ON — no real messages will be sent.</div>
-    <form id="opts">
-      <fieldset><legend>AI</legend>
-        <div class="env-status-wrapper">
-          <div id="env-orb" class="orb-container"></div>
-          <div id="env-status" class="env-banner">API key &amp; Agent Model are loaded from <code>.env</code> via local server.</div>
-        </div>
-        <label>API Key (loaded from .env)
-          <input type="text" id="apiKey" readonly class="readonly-key" placeholder="Configured in .env file" />
-        </label>
-        <div class="field-hint">API key is loaded from the <code>.env</code> file in your project directory. No frontend entry required.</div>
-        <label>Model
-          <input type="text" id="model" list="agent-models" placeholder="nvidia/llama-3.1-nemotron-70b-instruct" />
-          <datalist id="agent-models">
-            <option value="nvidia/llama-3.1-nemotron-70b-instruct">NVIDIA Llama 3.1 Nemotron 70B (Agent Reasoning)</option>
-            <option value="meta/llama-3.3-70b-instruct">Meta Llama 3.3 70B Instruct</option>
-            <option value="deepseek-ai/deepseek-r1">DeepSeek R1 (Agent Reasoning)</option>
-            <option value="nvidia/mistral-nemo-12b-instruct">Mistral NeMo 12B Instruct</option>
-          </datalist>
-        </label>
-        <label><input type="checkbox" id="aiMode" /> AI mode</label>
-        <label><input type="checkbox" id="mockAI" /> Mock AI (tests)</label>
-        <label>Temperature <input type="number" id="temperature" step="0.1" min="0" max="2" /></label>
-      </fieldset>
-      <fieldset><legend>Thinking Orb Showcase (Libraries.dev)</legend>
-        <div class="orb-showcase-desc">Nine hand-tuned animated states replacing spinners for AI thinking states with zero runtime dependencies.</div>
-        <div class="orb-preview-layout">
-          <div id="showcase-orb-preview" class="orb-preview-card"></div>
-          <div class="orb-controls">
-            <label>State:
-              <select id="orb-state-select">
-                <option value="working">working (orbits)</option>
-                <option value="searching">searching (globe)</option>
-                <option value="solving">solving (rubik)</option>
-                <option value="listening">listening (wave)</option>
-                <option value="connecting">connecting (web)</option>
-                <option value="weaving">weaving (braid)</option>
-                <option value="composing" selected>composing (ribbon)</option>
-                <option value="breathing">breathing (ring)</option>
-                <option value="shaping">shaping (morph)</option>
-              </select>
-            </label>
-            <label>Size:
-              <select id="orb-size-select">
-                <option value="64" selected>64 (Chat avatar scale)</option>
-                <option value="20">20 (Inline text scale)</option>
-              </select>
-            </label>
-            <label>Speed:
-              <select id="orb-speed-select">
-                <option value="0.5">0.5x</option>
-                <option value="1" selected>1.0x</option>
-                <option value="1.5">1.5x</option>
-                <option value="2">2.0x</option>
-              </select>
-            </label>
-            <div class="orb-toggle-row">
-              <label class="checkbox-inline"><input type="checkbox" id="orb-dark-toggle" /> Dark mode tuning</label>
-              <label class="checkbox-inline"><input type="checkbox" id="orb-paused-toggle" /> Paused</label>
-            </div>
+
+    <!-- macOS Two-Column Layout -->
+    <div class="settings-body">
+      <!-- Sidebar Navigation -->
+      <nav class="settings-nav" role="tablist">
+        <div class="nav-profile-header">
+          <div class="user-avatar-ring">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          </div>
+          <div class="nav-profile-info">
+            <div class="nav-profile-name">AutoRef Agent</div>
+            <div class="nav-profile-sub">NVIDIA Nemotron 70B</div>
           </div>
         </div>
-      </fieldset>
-      <fieldset><legend>Content</legend>
-        <label>About me <textarea id="aboutMe"></textarea></label>
-        <label>Custom note <textarea id="customNote"></textarea></label>
-        <label>Tone
-          <select id="tone">
-            <option value="friendly">friendly</option>
-            <option value="formal">formal</option>
-            <option value="concise">concise</option>
-          </select>
-        </label>
-        <label>Target companies (comma-separated) <input type="text" id="targetCompanies" /></label>
-        <label>Target roles (comma-separated) <input type="text" id="targetRoles" /></label>
-        <label>Fallback template <textarea id="fallbackTemplate"></textarea></label>
-        <div id="tpl-preview"></div>
-      </fieldset>
-      <fieldset><legend>Safety</legend>
-        <label><input type="checkbox" id="dryRun" /> Dry-run (default ON)</label>
-        <label><input type="checkbox" id="reviewMode" /> Review mode</label>
-        <label>Daily cap <input type="number" id="dailyCap" min="1" max="500" /></label>
-        <label>Delay min (sec) <input type="number" id="delayMinSec" min="0" /></label>
-        <label>Delay max (sec) <input type="number" id="delayMaxSec" min="0" /></label>
-        <label>Coffee break interval (sends) <input type="number" id="coffeeBreakInterval" min="1" max="100" /></label>
-        <label>Coffee break duration (sec) <input type="number" id="coffeeBreakDurationSec" min="1" max="3600" /></label>
-        <label><input type="checkbox" id="workHoursEnabled" /> Working hours only</label>
-        <label>Start <input type="number" id="workHoursStart" min="0" max="23" /></label>
-        <label>End <input type="number" id="workHoursEnd" min="0" max="23" /></label>
-        <label>Blacklist profiles (comma-separated) <input type="text" id="blacklistProfiles" /></label>
-        <label>Blacklist companies (comma-separated) <input type="text" id="blacklistCompanies" /></label>
-        <label><input type="checkbox" id="mockMode" /> Mock mode (test pages)</label>
-      </fieldset>
-      <button type="submit">Save</button>
-      <button type="button" id="test-ai">Test AI</button>
-      <div id="test-ai-hint">Uses saved settings — press Save first. With Mock AI on, no key or network is needed.</div>
-      <div id="test-ai-row" class="test-ai-row">
-        <div id="test-ai-orb" class="orb-container hidden"></div>
-        <div id="test-ai-out"></div>
-      </div>
-      <fieldset><legend>Danger zone</legend>
-        <button type="button" id="clear-queue">Clear queue</button>
-        <button type="button" id="clear-sent">Clear sentLog</button>
-        <button type="button" id="clear-cache">Clear cache</button>
-      </fieldset>
-      <div id="status"></div>
-    </form>
-  </main>
+
+        <div class="nav-section-title">Categories</div>
+        <button type="button" class="nav-item active" data-target="sec-general">
+          <div class="nav-icon-wrap blue">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect width="16" height="16" x="4" y="4" rx="2"/><rect width="6" height="6" x="9" y="9" rx="1"/><path d="M15 2v2"/><path d="M15 20v2"/><path d="M2 15h2"/><path d="M2 9h2"/><path d="M20 15h2"/><path d="M20 9h2"/><path d="M9 2v2"/><path d="M9 20v2"/></svg>
+          </div>
+          <span>General &amp; AI Engine</span>
+        </button>
+
+        <button type="button" class="nav-item" data-target="sec-personalization">
+          <div class="nav-icon-wrap purple">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+          </div>
+          <span>Personalization</span>
+        </button>
+
+        <button type="button" class="nav-item" data-target="sec-safety">
+          <div class="nav-icon-wrap green">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg>
+          </div>
+          <span>Safety &amp; Pacing</span>
+        </button>
+
+        <button type="button" class="nav-item" data-target="sec-data">
+          <div class="nav-icon-wrap orange">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5V19A9 3 0 0 0 21 19V5"/><path d="M3 12A9 3 0 0 0 21 12"/></svg>
+          </div>
+          <span>Data &amp; Storage</span>
+        </button>
+      </nav>
+
+      <!-- Main Form Content -->
+      <main class="settings-content">
+        <form id="opts">
+          <!-- SECTION 1: GENERAL & AI ENGINE -->
+          <section id="sec-general" class="settings-section active">
+            <div class="section-hero-header">
+              <h2>General &amp; AI Engine</h2>
+              <p>Configure local reasoning models, API connectivity, and visual Thinking Orb feedback.</p>
+            </div>
+
+            <!-- Server & .env Banner -->
+            <div class="glass-group-card">
+              <div class="env-status-wrapper">
+                <div id="env-orb" class="orb-container"></div>
+                <div id="env-status" class="env-banner">Checking local server on port 8787…</div>
+              </div>
+              <div class="card-row">
+                <div class="row-info">
+                  <span class="row-label">NVIDIA API Key</span>
+                  <span class="row-sub">Loaded securely from <code>.env</code> in project directory. No manual entry needed.</span>
+                </div>
+                <div class="row-ctrl">
+                  <input type="text" id="apiKey" readonly class="readonly-key glass-input" placeholder="Configured in .env file" />
+                </div>
+              </div>
+            </div>
+
+            <!-- Model Selection Card -->
+            <div class="glass-group-card">
+              <div class="card-row vertical-stack">
+                <div class="row-info">
+                  <span class="row-label">Agent Model Selection</span>
+                  <span class="row-sub">Select the neural model for analyzing profiles and generating referrals.</span>
+                </div>
+                <div class="pill-selector-group" id="model-pill-group">
+                  <button type="button" class="model-pill active" data-model="nvidia/llama-3.1-nemotron-70b-instruct">
+                    <span class="pill-title">NVIDIA Nemotron 70B</span>
+                    <span class="pill-badge">Reasoning</span>
+                  </button>
+                  <button type="button" class="model-pill" data-model="meta/llama-3.3-70b-instruct">
+                    <span class="pill-title">Meta Llama 3.3 70B</span>
+                    <span class="pill-badge">Instruct</span>
+                  </button>
+                  <button type="button" class="model-pill" data-model="deepseek-ai/deepseek-r1">
+                    <span class="pill-title">DeepSeek R1</span>
+                    <span class="pill-badge">CoT Reasoning</span>
+                  </button>
+                  <button type="button" class="model-pill" data-model="nvidia/mistral-nemo-12b-instruct">
+                    <span class="pill-title">Mistral NeMo 12B</span>
+                    <span class="pill-badge">Lightweight</span>
+                  </button>
+                </div>
+                <input type="text" id="model" list="agent-models" class="glass-input hidden-text-input" placeholder="nvidia/llama-3.1-nemotron-70b-instruct" />
+                <datalist id="agent-models">
+                  <option value="nvidia/llama-3.1-nemotron-70b-instruct">NVIDIA Llama 3.1 Nemotron 70B</option>
+                  <option value="meta/llama-3.3-70b-instruct">Meta Llama 3.3 70B Instruct</option>
+                  <option value="deepseek-ai/deepseek-r1">DeepSeek R1</option>
+                  <option value="nvidia/mistral-nemo-12b-instruct">Mistral NeMo 12B Instruct</option>
+                </datalist>
+              </div>
+
+              <!-- Temperature Slider -->
+              <div class="card-row">
+                <div class="row-info">
+                  <span class="row-label">Sampling Temperature</span>
+                  <span class="row-sub">Controls balance between creativity and consistency.</span>
+                </div>
+                <div class="slider-with-badge">
+                  <span class="badge-value" id="temperature-badge">0.80</span>
+                  <input type="range" id="temperature" min="0" max="2" step="0.05" class="glass-slider" value="0.8" />
+                </div>
+              </div>
+
+              <!-- AI Mode Switch -->
+              <div class="card-row">
+                <div class="row-info">
+                  <span class="row-label">Enable AI Generation</span>
+                  <span class="row-sub">Generate dynamic referral reachout notes using LLM.</span>
+                </div>
+                <label class="ios-switch">
+                  <input type="checkbox" id="aiMode" />
+                  <span class="ios-switch-slider"></span>
+                </label>
+              </div>
+
+              <!-- Mock AI Switch -->
+              <div class="card-row">
+                <div class="row-info">
+                  <span class="row-label">Mock AI (Offline / Unit Tests)</span>
+                  <span class="row-sub">Return realistic canned drafts without making network requests.</span>
+                </div>
+                <label class="ios-switch">
+                  <input type="checkbox" id="mockAI" />
+                  <span class="ios-switch-slider"></span>
+                </label>
+              </div>
+            </div>
+
+            <!-- Thinking Orb Showcase Card -->
+            <div class="glass-group-card">
+              <div class="card-hero-row">
+                <div class="hero-left">
+                  <span class="row-label">Thinking Orb Studio</span>
+                  <span class="row-sub">Zero-dependency visual agent states replacing spinners.</span>
+                </div>
+              </div>
+              <div class="orb-studio-layout">
+                <div id="showcase-orb-preview" class="orb-preview-stage"></div>
+                <div class="orb-studio-controls">
+                  <div class="studio-row">
+                    <label for="orb-state-select">Animated State</label>
+                    <select id="orb-state-select" class="glass-select">
+                      <option value="working">working (orbits)</option>
+                      <option value="searching">searching (globe)</option>
+                      <option value="solving">solving (rubik)</option>
+                      <option value="listening">listening (wave)</option>
+                      <option value="connecting">connecting (web)</option>
+                      <option value="weaving">weaving (braid)</option>
+                      <option value="composing" selected>composing (ribbon)</option>
+                      <option value="breathing">breathing (ring)</option>
+                      <option value="shaping">shaping (morph)</option>
+                    </select>
+                  </div>
+                  <div class="studio-grid-2">
+                    <div class="studio-row">
+                      <label for="orb-size-select">Scale</label>
+                      <select id="orb-size-select" class="glass-select">
+                        <option value="64" selected>64 (Avatar)</option>
+                        <option value="20">20 (Inline)</option>
+                      </select>
+                    </div>
+                    <div class="studio-row">
+                      <label for="orb-speed-select">Speed</label>
+                      <select id="orb-speed-select" class="glass-select">
+                        <option value="0.5">0.5x</option>
+                        <option value="1" selected>1.0x</option>
+                        <option value="1.5">1.5x</option>
+                        <option value="2">2.0x</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div class="studio-toggles">
+                    <label class="ios-mini-label">
+                      <input type="checkbox" id="orb-dark-toggle" />
+                      <span>Dark Theme Tuning</span>
+                    </label>
+                    <label class="ios-mini-label">
+                      <input type="checkbox" id="orb-paused-toggle" />
+                      <span>Paused</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- SECTION 2: PERSONALIZATION -->
+          <section id="sec-personalization" class="settings-section">
+            <div class="section-hero-header">
+              <h2>Personalization &amp; Templates</h2>
+              <p>Customize your personal background and tailor the fallback template.</p>
+            </div>
+
+            <div class="glass-group-card">
+              <div class="card-row vertical-stack">
+                <label for="aboutMe" class="row-label">About Me (Bio &amp; Skills)</label>
+                <span class="row-sub">Briefly summarize your experience, career goals, and technologies. The AI uses this context when personalizing requests.</span>
+                <textarea id="aboutMe" class="glass-textarea" rows="3" placeholder="Senior Full-Stack Engineer specializing in TypeScript, React, Distributed Systems, and AI tooling with 6 years experience..."></textarea>
+              </div>
+
+              <div class="card-row vertical-stack">
+                <label for="customNote" class="row-label">Custom Note Snippet</label>
+                <span class="row-sub">An optional snippet appended to referral requests.</span>
+                <textarea id="customNote" class="glass-textarea" rows="2" placeholder="I noticed your team recently launched the new platform and would love to contribute..."></textarea>
+              </div>
+
+              <div class="card-row">
+                <div class="row-info">
+                  <label for="tone" class="row-label">Message Tone</label>
+                  <span class="row-sub">Select the communication style for reachouts.</span>
+                </div>
+                <div class="row-ctrl">
+                  <select id="tone" class="glass-select">
+                    <option value="friendly">Friendly 🤝</option>
+                    <option value="formal">Formal 👔</option>
+                    <option value="concise">Concise ⚡</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="card-row vertical-stack">
+                <label for="targetCompanies" class="row-label">Target Companies</label>
+                <span class="row-sub">Comma-separated list. Leave empty to target all companies.</span>
+                <input type="text" id="targetCompanies" class="glass-input" placeholder="Google, Apple, Stripe, Microsoft, Anthropic" />
+              </div>
+
+              <div class="card-row vertical-stack">
+                <label for="targetRoles" class="row-label">Target Roles</label>
+                <span class="row-sub">Comma-separated keywords. Leave empty to target all roles.</span>
+                <input type="text" id="targetRoles" class="glass-input" placeholder="Software Engineer, Engineering Manager, Tech Lead" />
+              </div>
+            </div>
+
+            <!-- Fallback Template Card -->
+            <div class="glass-group-card">
+              <div class="card-row vertical-stack">
+                <div class="label-row-with-chips">
+                  <label for="fallbackTemplate" class="row-label">Fallback Message Template</label>
+                  <span class="chip-hint">Click chip to insert:</span>
+                </div>
+                <div class="variable-chips-container">
+                  <button type="button" class="var-chip" data-var="{{firstName}}">{{firstName}}</button>
+                  <button type="button" class="var-chip" data-var="{{company}}">{{company}}</button>
+                  <button type="button" class="var-chip" data-var="{{role}}">{{role}}</button>
+                  <button type="button" class="var-chip" data-var="{{customNote}}">{{customNote}}</button>
+                </div>
+                <textarea id="fallbackTemplate" class="glass-textarea" rows="3"></textarea>
+              </div>
+
+              <div class="preview-box-container">
+                <span class="preview-tag">Live Template Preview:</span>
+                <div id="tpl-preview" class="glass-preview-box"></div>
+              </div>
+            </div>
+          </section>
+
+          <!-- SECTION 3: SAFETY & PACING -->
+          <section id="sec-safety" class="settings-section">
+            <div class="section-hero-header">
+              <h2>Safety, Limits &amp; Pacing</h2>
+              <p>Strict LinkedIn anti-automation guardrails, daily caps, and natural human delays.</p>
+            </div>
+
+            <div class="glass-group-card">
+              <!-- Dry Run Switch -->
+              <div class="card-row">
+                <div class="row-info">
+                  <span class="row-label">Dry-Run Mode (Recommended)</span>
+                  <span class="row-sub">Simulates actions without sending actual LinkedIn messages.</span>
+                </div>
+                <label class="ios-switch">
+                  <input type="checkbox" id="dryRun" />
+                  <span class="ios-switch-slider"></span>
+                </label>
+              </div>
+
+              <!-- Review Mode Switch -->
+              <div class="card-row">
+                <div class="row-info">
+                  <span class="row-label">Review Mode</span>
+                  <span class="row-sub">Requires manual approval in sidebar or in-page overlay before sending.</span>
+                </div>
+                <label class="ios-switch">
+                  <input type="checkbox" id="reviewMode" />
+                  <span class="ios-switch-slider"></span>
+                </label>
+              </div>
+
+              <!-- Daily Cap Slider -->
+              <div class="card-row">
+                <div class="row-info">
+                  <label for="dailyCap" class="row-label">Daily Message Cap</label>
+                  <span class="row-sub">Maximum referral requests sent per calendar day.</span>
+                </div>
+                <div class="slider-with-badge">
+                  <span class="badge-value" id="dailyCap-badge">15</span>
+                  <input type="range" id="dailyCap" min="1" max="50" step="1" class="glass-slider" value="15" />
+                </div>
+              </div>
+
+              <!-- Delays Min & Max -->
+              <div class="card-row">
+                <div class="row-info">
+                  <span class="row-label">Delay Between Sends (Seconds)</span>
+                  <span class="row-sub">Randomized humanized pacing interval.</span>
+                </div>
+                <div class="dual-inputs-row">
+                  <div class="input-with-sub">
+                    <span>Min</span>
+                    <input type="number" id="delayMinSec" min="0" max="300" class="glass-input num-input" value="45" />
+                  </div>
+                  <div class="input-with-sub">
+                    <span>Max</span>
+                    <input type="number" id="delayMaxSec" min="0" max="600" class="glass-input num-input" value="120" />
+                  </div>
+                </div>
+              </div>
+
+              <!-- Coffee Break -->
+              <div class="card-row">
+                <div class="row-info">
+                  <span class="row-label">Coffee Break Interval</span>
+                  <span class="row-sub">Take a cooling break every N sends.</span>
+                </div>
+                <div class="dual-inputs-row">
+                  <div class="input-with-sub">
+                    <span>Every (Sends)</span>
+                    <input type="number" id="coffeeBreakInterval" min="1" max="50" class="glass-input num-input" value="5" />
+                  </div>
+                  <div class="input-with-sub">
+                    <span>Duration (Sec)</span>
+                    <input type="number" id="coffeeBreakDurationSec" min="10" max="3600" class="glass-input num-input" value="900" />
+                  </div>
+                </div>
+              </div>
+
+              <!-- Working Hours -->
+              <div class="card-row">
+                <div class="row-info">
+                  <span class="row-label">Working Hours Schedule</span>
+                  <span class="row-sub">Only send messages during business hours (local time).</span>
+                </div>
+                <label class="ios-switch">
+                  <input type="checkbox" id="workHoursEnabled" />
+                  <span class="ios-switch-slider"></span>
+                </label>
+              </div>
+
+              <div class="card-row sub-row" id="work-hours-times">
+                <div class="row-info">
+                  <span class="row-label">Active Hours (24h clock)</span>
+                </div>
+                <div class="dual-inputs-row">
+                  <div class="input-with-sub">
+                    <span>Start</span>
+                    <input type="number" id="workHoursStart" min="0" max="23" class="glass-input num-input" value="9" />
+                  </div>
+                  <div class="input-with-sub">
+                    <span>End</span>
+                    <input type="number" id="workHoursEnd" min="0" max="23" class="glass-input num-input" value="18" />
+                  </div>
+                </div>
+              </div>
+
+              <!-- Blacklist -->
+              <div class="card-row vertical-stack">
+                <label for="blacklistProfiles" class="row-label">Blacklist Profiles</label>
+                <span class="row-sub">Comma-separated profile URNs, vanity URLs, or full names.</span>
+                <input type="text" id="blacklistProfiles" class="glass-input" placeholder="urn:li:fsd_profile:ACoAA..., jane-doe" />
+              </div>
+
+              <div class="card-row vertical-stack">
+                <label for="blacklistCompanies" class="row-label">Blacklist Companies</label>
+                <span class="row-sub">Comma-separated company names to skip automatically.</span>
+                <input type="text" id="blacklistCompanies" class="glass-input" placeholder="Acme Corp, Competitor Inc" />
+              </div>
+
+              <!-- Mock Mode -->
+              <div class="card-row">
+                <div class="row-info">
+                  <span class="row-label">Mock Page Mode</span>
+                  <span class="row-sub">Enables test harness execution against local mock LinkedIn DOM.</span>
+                </div>
+                <label class="ios-switch">
+                  <input type="checkbox" id="mockMode" />
+                  <span class="ios-switch-slider"></span>
+                </label>
+              </div>
+            </div>
+          </section>
+
+          <!-- SECTION 4: DATA & STORAGE -->
+          <section id="sec-data" class="settings-section">
+            <div class="section-hero-header">
+              <h2>Data, AI Smoke Test &amp; Storage</h2>
+              <p>Test the full AI pipeline and manage cached items and logs.</p>
+            </div>
+
+            <!-- Test AI Card -->
+            <div class="glass-group-card">
+              <div class="card-hero-row">
+                <div class="hero-left">
+                  <span class="row-label">AI Generation Smoke Test</span>
+                  <span class="row-sub">Trigger an immediate referral test draft using your active model and settings.</span>
+                </div>
+                <button type="button" id="test-ai" class="btn-glass-pill accent-btn">
+                  <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+                  <span>Test AI Generation</span>
+                </button>
+              </div>
+              <div id="test-ai-hint" class="field-hint">Press Save before testing. If Mock AI is enabled, no network key is required.</div>
+              <div id="test-ai-row" class="test-ai-row">
+                <div id="test-ai-orb" class="orb-container hidden"></div>
+                <div id="test-ai-out" class="test-output-box">No test executed yet.</div>
+              </div>
+            </div>
+
+            <!-- Danger Zone -->
+            <div class="glass-group-card danger-zone">
+              <div class="danger-header">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                <span>Danger Zone</span>
+              </div>
+              <p class="danger-sub">Irreversible storage actions. Confirmation will be prompted before clearing.</p>
+
+              <div class="danger-actions-grid">
+                <div class="danger-card">
+                  <div class="danger-meta">
+                    <strong>Pending Queue</strong>
+                    <span>Removes all discovered candidates awaiting send or review.</span>
+                  </div>
+                  <button type="button" id="clear-queue" class="btn-danger-pill">
+                    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                    <span>Clear Queue</span>
+                  </button>
+                </div>
+
+                <div class="danger-card">
+                  <div class="danger-meta">
+                    <strong>Sent History Log</strong>
+                    <span>Clears local log of contacts sent to prevent re-contacting.</span>
+                  </div>
+                  <button type="button" id="clear-sent" class="btn-danger-pill">
+                    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                    <span>Clear SentLog</span>
+                  </button>
+                </div>
+
+                <div class="danger-card">
+                  <div class="danger-meta">
+                    <strong>AI Message Cache</strong>
+                    <span>Clears cached drafts for model regeneration.</span>
+                  </div>
+                  <button type="button" id="clear-cache" class="btn-danger-pill">
+                    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                    <span>Clear Cache</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- Floating Glass Save Bar -->
+          <div class="floating-save-bar">
+            <div class="save-bar-status">
+              <span id="status" class="status-toast">Ready</span>
+            </div>
+            <div class="save-bar-actions">
+              <button type="submit" class="btn-hero-save">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6 9 17l-5-5"/></svg>
+                <span>Save Changes</span>
+              </button>
+            </div>
+          </div>
+        </form>
+      </main>
+    </div>
+  </div>
+
   <script src="../lib/thinking-orb.js"></script>
   <script src="options.js"></script>
 </body>

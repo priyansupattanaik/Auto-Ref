@@ -1,13 +1,16 @@
-/* AutoRef content/overlay-widget.js — Floating In-Page Overlay Widget.
+/* AutoRef content/overlay-widget.js — Apple macOS HIG Frosted Glassmorphism In-Page Overlay.
    Renders directly on webpage above active LinkedIn compose area in mock & live pages.
    Features:
+   - Translucent frosted glass island with squircle corners & specular borders
+   - Draggable title bar (can be positioned anywhere on screen)
+   - Minimize-to-pill mode toggle
    - Recipient info (name, role, company)
    - Editable draft textarea with live word count
-   - Action buttons: "Approve & Send", "Regenerate", "Skip"
+   - Spring-animated action buttons with embedded Lucide SVG icons: "Approve & Send", "Regenerate", "Skip"
    - Next-profile delay countdown timer with manual skip
    - Coffee break pacing countdown timer with resume button
    - Emergency halt visual modal + Web Audio alarm on captchas/checkpoints/warnings
-   Plain script, shares window.AutoRef namespace. */
+   Plain script, shares window.AutoRef namespace. Compatible with headless FakeNode harness. */
 (function () {
   'use strict';
   const NS = (window.AutoRef = window.AutoRef || {});
@@ -21,32 +24,46 @@
       position: fixed;
       bottom: 24px;
       right: 24px;
-      width: 380px;
+      width: 390px;
       max-width: calc(100vw - 32px);
-      background: #ffffff;
-      color: #1f2328;
-      border: 2px solid #0a66c2;
-      border-radius: 12px;
-      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.28);
-      font-family: -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: rgba(28, 28, 30, 0.88);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      color: #f5f5f7;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 16px;
+      box-shadow: 0 20px 48px rgba(0, 0, 0, 0.45), 0 2px 8px rgba(0, 0, 0, 0.2);
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
       font-size: 13px;
-      line-height: 1.4;
+      line-height: 1.45;
       z-index: 2147483647;
       overflow: hidden;
       box-sizing: border-box;
-      transition: box-shadow 0.2s ease, transform 0.2s ease;
+      transition: box-shadow 0.2s ease, width 0.25s cubic-bezier(0.16, 1, 0.3, 1), transform 0.2s ease;
+      -webkit-font-smoothing: antialiased;
+    }
+    #${WIDGET_ID}.autoref-minimized {
+      width: 290px;
+      border-radius: 9999px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
     }
     #${WIDGET_ID} * {
       box-sizing: border-box;
     }
     #${WIDGET_ID} .autoref-header {
-      background: #0a66c2;
+      background: rgba(255, 255, 255, 0.06);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
       color: #ffffff;
       padding: 10px 14px;
       display: flex;
       align-items: center;
       justify-content: space-between;
       font-weight: 600;
+      cursor: grab;
+      user-select: none;
+    }
+    #${WIDGET_ID} .autoref-header:active {
+      cursor: grabbing;
     }
     #${WIDGET_ID} .autoref-header-title {
       display: flex;
@@ -54,6 +71,12 @@
       gap: 8px;
       font-size: 13.5px;
       font-weight: 700;
+      letter-spacing: -0.2px;
+    }
+    #${WIDGET_ID} .autoref-drag-grip {
+      color: rgba(255, 255, 255, 0.35);
+      display: inline-flex;
+      align-items: center;
     }
     #${WIDGET_ID} .autoref-header-title img.autoref-logo {
       width: 20px;
@@ -61,21 +84,32 @@
       object-fit: contain;
       display: inline-block;
       vertical-align: middle;
+      filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.3));
     }
     #${WIDGET_ID} .autoref-badge {
-      background: rgba(255, 255, 255, 0.25);
-      color: #ffffff;
-      font-size: 10px;
+      background: rgba(10, 132, 255, 0.25);
+      color: #70baff;
+      border: 1px solid rgba(10, 132, 255, 0.4);
+      font-size: 9.5px;
       font-weight: 700;
       padding: 2px 6px;
-      border-radius: 4px;
+      border-radius: 9999px;
       text-transform: uppercase;
-      letter-spacing: 0.5px;
+      letter-spacing: 0.4px;
+    }
+    #${WIDGET_ID} .autoref-header-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
     #${WIDGET_ID} .autoref-status-container {
       display: flex;
       align-items: center;
       gap: 6px;
+      background: rgba(0, 0, 0, 0.25);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 3px 8px;
+      border-radius: 9999px;
     }
     #${WIDGET_ID} .autoref-header-orb {
       display: inline-flex;
@@ -87,23 +121,45 @@
       font-size: 11px;
       opacity: 0.92;
       font-weight: 500;
+      letter-spacing: -0.1px;
+    }
+    #${WIDGET_ID} .autoref-btn-minimize {
+      cursor: pointer;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: #f5f5f7;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.18s ease;
+      flex-shrink: 0;
+    }
+    #${WIDGET_ID} .autoref-btn-minimize:hover {
+      background: rgba(255, 255, 255, 0.22);
+      transform: scale(1.08);
     }
     #${WIDGET_ID} .autoref-body {
       padding: 14px;
     }
     #${WIDGET_ID} .autoref-recipient {
-      margin-bottom: 10px;
-      padding-bottom: 8px;
-      border-bottom: 1px solid #e1e4e8;
+      margin-bottom: 12px;
+      padding: 10px 12px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
     }
     #${WIDGET_ID} .autoref-recipient-name {
-      font-size: 15px;
+      font-size: 14px;
       font-weight: 700;
-      color: #1f2328;
+      color: #ffffff;
+      letter-spacing: -0.2px;
     }
     #${WIDGET_ID} .autoref-recipient-meta {
-      font-size: 12px;
-      color: #57606a;
+      font-size: 11.5px;
+      color: #98989d;
       margin-top: 2px;
     }
     #${WIDGET_ID} .autoref-draft-container {
@@ -113,36 +169,39 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 4px;
+      margin-bottom: 6px;
     }
     #${WIDGET_ID} .autoref-draft-label {
       font-weight: 600;
-      color: #333333;
-      font-size: 12px;
+      color: #98989d;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
     }
     #${WIDGET_ID} .autoref-word-count {
       font-size: 11px;
-      color: #0a66c2;
-      font-weight: 600;
+      color: #2997ff;
+      font-weight: 700;
     }
     #${WIDGET_ID} .autoref-draft-textarea {
       width: 100%;
       min-height: 90px;
       max-height: 180px;
-      padding: 8px 10px;
-      border: 1px solid #c9d1d9;
-      border-radius: 6px;
+      padding: 10px 12px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 10px;
       font-family: inherit;
       font-size: 12.5px;
       line-height: 1.45;
-      color: #24292f;
-      background: #fdfdfd;
+      color: #f5f5f7;
+      background: rgba(0, 0, 0, 0.35);
       resize: vertical;
+      transition: border-color 0.18s ease, box-shadow 0.18s ease;
     }
     #${WIDGET_ID} .autoref-draft-textarea:focus {
       outline: none;
-      border-color: #0a66c2;
-      box-shadow: 0 0 0 2px rgba(10, 102, 194, 0.2);
+      border-color: #0a84ff;
+      box-shadow: 0 0 0 2px rgba(10, 132, 255, 0.35);
     }
     #${WIDGET_ID} .autoref-actions {
       display: flex;
@@ -152,50 +211,59 @@
     #${WIDGET_ID} .autoref-btn {
       cursor: pointer;
       font-weight: 600;
-      border-radius: 6px;
-      padding: 7px 12px;
+      border-radius: 9999px;
+      padding: 8px 14px;
       font-size: 12px;
       display: inline-flex;
       align-items: center;
       justify-content: center;
+      gap: 6px;
       border: 1px solid transparent;
-      transition: background 0.15s ease, border-color 0.15s ease;
+      transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+      user-select: none;
+    }
+    #${WIDGET_ID} .autoref-btn:active {
+      transform: scale(0.96);
     }
     #${WIDGET_ID} .autoref-btn:disabled {
       opacity: 0.5;
       cursor: not-allowed;
+      transform: none !important;
     }
     #${WIDGET_ID} .autoref-btn-approve {
-      background: #0a66c2;
+      background: linear-gradient(135deg, #2997ff 0%, #0a84ff 100%);
       color: #ffffff;
-      flex: 1.2;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      flex: 1.3;
+      box-shadow: 0 4px 14px rgba(10, 132, 255, 0.35);
     }
     #${WIDGET_ID} .autoref-btn-approve:hover:not(:disabled) {
-      background: #084e96;
+      filter: brightness(1.08);
+      box-shadow: 0 6px 20px rgba(10, 132, 255, 0.45);
     }
     #${WIDGET_ID} .autoref-btn-regenerate {
-      background: #f6f8fa;
-      color: #0a66c2;
-      border-color: #0a66c2;
+      background: rgba(255, 255, 255, 0.08);
+      color: #70baff;
+      border: 1px solid rgba(10, 132, 255, 0.3);
       flex: 1;
     }
     #${WIDGET_ID} .autoref-btn-regenerate:hover:not(:disabled) {
-      background: #eef3f8;
+      background: rgba(10, 132, 255, 0.15);
     }
     #${WIDGET_ID} .autoref-btn-skip {
-      background: #f6f8fa;
-      color: #57606a;
-      border-color: #d0d7de;
+      background: rgba(255, 255, 255, 0.06);
+      color: #98989d;
+      border: 1px solid rgba(255, 255, 255, 0.1);
     }
     #${WIDGET_ID} .autoref-btn-skip:hover:not(:disabled) {
-      background: #eaeef2;
-      color: #24292f;
+      background: rgba(255, 255, 255, 0.12);
+      color: #f5f5f7;
     }
     #${WIDGET_ID} .autoref-countdown-section {
-      background: #f0f7ff;
-      border: 1px dashed #0a66c2;
-      border-radius: 6px;
-      padding: 8px 10px;
+      background: rgba(10, 132, 255, 0.12);
+      border: 1px dashed rgba(10, 132, 255, 0.45);
+      border-radius: 10px;
+      padding: 9px 12px;
       margin-top: 10px;
       display: flex;
       align-items: center;
@@ -203,22 +271,22 @@
       font-size: 12px;
     }
     #${WIDGET_ID} .autoref-countdown-text {
-      color: #0a66c2;
+      color: #70baff;
       font-weight: 600;
     }
     #${WIDGET_ID} .autoref-btn-skip-delay {
       cursor: pointer;
-      background: #ffffff;
-      border: 1px solid #0a66c2;
-      color: #0a66c2;
-      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.15);
+      border: 1px solid rgba(10, 132, 255, 0.4);
+      color: #ffffff;
+      border-radius: 9999px;
       font-size: 11px;
       font-weight: 600;
-      padding: 3px 8px;
+      padding: 4px 10px;
+      transition: all 0.15s ease;
     }
     #${WIDGET_ID} .autoref-btn-skip-delay:hover {
-      background: #0a66c2;
-      color: #ffffff;
+      background: #0a84ff;
     }
 
     /* Emergency Alert Modal */
@@ -229,21 +297,23 @@
       transform: translateX(-50%);
       width: 520px;
       max-width: calc(100vw - 32px);
-      background: #fff0f0;
-      color: #d11124;
-      border: 3px solid #d11124;
-      border-radius: 12px;
-      box-shadow: 0 16px 48px rgba(209, 17, 36, 0.35);
+      background: rgba(36, 12, 14, 0.94);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      color: #ff453a;
+      border: 2px solid #ff453a;
+      border-radius: 16px;
+      box-shadow: 0 20px 60px rgba(255, 69, 58, 0.4);
       z-index: 2147483647;
-      padding: 16px 20px;
-      font-family: system-ui, -apple-system, sans-serif;
+      padding: 18px 22px;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
       animation: autoref-pulse 1.8s infinite;
       box-sizing: border-box;
     }
     @keyframes autoref-pulse {
-      0% { box-shadow: 0 0 0 0 rgba(209, 17, 36, 0.4); }
-      70% { box-shadow: 0 0 0 14px rgba(209, 17, 36, 0); }
-      100% { box-shadow: 0 0 0 0 rgba(209, 17, 36, 0); }
+      0% { box-shadow: 0 0 0 0 rgba(255, 69, 58, 0.5); }
+      70% { box-shadow: 0 0 0 16px rgba(255, 69, 58, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(255, 69, 58, 0); }
     }
     #${EMERGENCY_ID} .autoref-em-title {
       font-size: 17px;
@@ -255,19 +325,24 @@
     }
     #${EMERGENCY_ID} .autoref-em-desc {
       font-size: 13px;
-      color: #4b1014;
+      color: #ffb4af;
       line-height: 1.45;
-      margin-bottom: 12px;
+      margin-bottom: 14px;
     }
     #${EMERGENCY_ID} .autoref-em-btn {
       cursor: pointer;
-      background: #d11124;
+      background: #ff453a;
       color: #ffffff;
       border: none;
-      border-radius: 6px;
-      padding: 8px 14px;
+      border-radius: 9999px;
+      padding: 8px 16px;
       font-weight: 700;
       font-size: 13px;
+      transition: all 0.15s ease;
+    }
+    #${EMERGENCY_ID} .autoref-em-btn:hover {
+      background: #ff6961;
+      box-shadow: 0 4px 14px rgba(255, 69, 58, 0.4);
     }
   `;
 
@@ -316,19 +391,16 @@
     return m > 0 ? m + ':' + String(rem).padStart(2, '0') : rem + 's';
   }
 
-  // Calculate and align widget position directly above active compose area
   function positionAboveCompose(card) {
     if (!card || typeof card.getBoundingClientRect !== 'function') return;
     try {
       const compose = NS.findComposeBox ? NS.findComposeBox() : null;
       if (compose && typeof compose.getBoundingClientRect === 'function') {
         const rect = compose.getBoundingClientRect();
-        // If element has a layout on screen
         if (rect && (rect.width > 0 || rect.height > 0)) {
           const cardHeight = card.offsetHeight || 300;
           const spaceAbove = rect.top;
           if (spaceAbove >= cardHeight + 16) {
-            // Fits directly above compose box
             card.style.bottom = Math.max(16, window.innerHeight - rect.top + 8) + 'px';
             card.style.right = Math.max(16, window.innerWidth - rect.right) + 'px';
             return;
@@ -346,11 +418,69 @@
   let currentCard = null;
   let activeCountdownTimer = null;
   let overlayOrb = null;
+  let isMinimized = false;
 
   function setOrbState(state) {
     if (overlayOrb && typeof ThinkingOrb !== 'undefined') {
-      overlayOrb.update({ state: state, paused: false });
+      overlayOrb.update({ state: state, paused: false, dark: true });
     }
+  }
+
+  // Draggable logic for window positioning
+  function attachDragHandler(card, handle) {
+    if (!card || !handle) return;
+    let isDragging = false;
+    let startX = 0, startY = 0;
+    let initialLeft = 0, initialTop = 0;
+
+    const onMouseDown = (e) => {
+      if (!e) return;
+      if (e.target && (e.target.tagName === 'BUTTON' || e.target.tagName === 'TEXTAREA' || (e.target.closest && e.target.closest('button')))) {
+        return;
+      }
+      isDragging = true;
+      startX = e.clientX || 0;
+      startY = e.clientY || 0;
+
+      const rect = card.getBoundingClientRect ? card.getBoundingClientRect() : { left: 100, top: 100 };
+      initialLeft = rect.left;
+      initialTop = rect.top;
+
+      if (typeof document !== 'undefined' && document.addEventListener) {
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
+      }
+    };
+
+    const onMouseMove = (e) => {
+      if (!isDragging || !e) return;
+      const dx = (e.clientX || 0) - startX;
+      const dy = (e.clientY || 0) - startY;
+
+      card.style.bottom = 'auto';
+      card.style.right = 'auto';
+
+      const maxW = typeof window !== 'undefined' ? window.innerWidth : 1200;
+      const maxH = typeof window !== 'undefined' ? window.innerHeight : 800;
+      const cardW = card.offsetWidth || 390;
+      const cardH = card.offsetHeight || 200;
+
+      const newLeft = Math.max(8, Math.min(maxW - cardW - 8, initialLeft + dx));
+      const newTop = Math.max(8, Math.min(maxH - cardH - 8, initialTop + dy));
+
+      card.style.left = newLeft + 'px';
+      card.style.top = newTop + 'px';
+    };
+
+    const onMouseUp = () => {
+      isDragging = false;
+      if (typeof document !== 'undefined' && document.removeEventListener) {
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+      }
+    };
+
+    handle.addEventListener('mousedown', onMouseDown);
   }
 
   function render(options) {
@@ -370,6 +500,7 @@
     // Header
     const header = document.createElement('div');
     header.className = 'autoref-header';
+
     const title = document.createElement('div');
     title.className = 'autoref-header-title';
 
@@ -383,7 +514,12 @@
       }
     } catch (_) {}
 
-    title.innerHTML = `${logoMarkup}<span>AutoRef</span><span class="autoref-badge">Review Queue</span>`;
+    const gripIcon = `<span class="autoref-drag-grip"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="9" r="1"/><circle cx="9" cy="15" r="1"/><circle cx="15" cy="9" r="1"/><circle cx="15" cy="15" r="1"/></svg></span>`;
+
+    title.innerHTML = `${gripIcon}${logoMarkup}<span>AutoRef</span><span class="autoref-badge">Review Queue</span>`;
+
+    const controls = document.createElement('div');
+    controls.className = 'autoref-header-controls';
 
     const statusContainer = document.createElement('div');
     statusContainer.className = 'autoref-status-container';
@@ -400,8 +536,18 @@
     statusContainer.appendChild(orbSlot);
     statusContainer.appendChild(statusTag);
 
+    // Minimize / Expand Pill Mode Button
+    const btnMin = document.createElement('button');
+    btnMin.type = 'button';
+    btnMin.className = 'autoref-btn-minimize';
+    btnMin.title = 'Minimize / Expand';
+    btnMin.innerHTML = `<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" x2="19" y1="12" y2="12"/></svg>`;
+
+    controls.appendChild(statusContainer);
+    controls.appendChild(btnMin);
+
     header.appendChild(title);
-    header.appendChild(statusContainer);
+    header.appendChild(controls);
     card.appendChild(header);
 
     if (typeof ThinkingOrb !== 'undefined') {
@@ -429,14 +575,14 @@
     recDiv.appendChild(metaEl);
     body.appendChild(recDiv);
 
-    // Draft Textarea + Word Count
+    // Draft Textarea + Live Word Count
     const draftContainer = document.createElement('div');
     draftContainer.className = 'autoref-draft-container';
     const draftHeader = document.createElement('div');
     draftHeader.className = 'autoref-draft-header';
     const draftLabel = document.createElement('span');
     draftLabel.className = 'autoref-draft-label';
-    draftLabel.textContent = 'Message Draft:';
+    draftLabel.textContent = 'Message Draft';
     const wordCountBadge = document.createElement('span');
     wordCountBadge.className = 'autoref-word-count';
     wordCountBadge.id = 'autoref-word-count';
@@ -456,7 +602,7 @@
     draftContainer.appendChild(textarea);
     body.appendChild(draftContainer);
 
-    // Action Buttons
+    // Spring-Animated Action Buttons with Embedded Lucide SVGs
     const actions = document.createElement('div');
     actions.className = 'autoref-actions';
 
@@ -464,7 +610,7 @@
     btnApprove.type = 'button';
     btnApprove.className = 'autoref-btn autoref-btn-approve';
     btnApprove.id = 'autoref-btn-approve';
-    btnApprove.textContent = 'Approve & Send';
+    btnApprove.innerHTML = `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6 9 17l-5-5"/></svg><span>Approve &amp; Send</span>`;
     btnApprove.addEventListener('click', async () => {
       setBusy(true, 'Approving & Sending...');
       if (typeof opts.onApprove === 'function') {
@@ -476,7 +622,7 @@
     btnRegen.type = 'button';
     btnRegen.className = 'autoref-btn autoref-btn-regenerate';
     btnRegen.id = 'autoref-btn-regenerate';
-    btnRegen.textContent = 'Regenerate';
+    btnRegen.innerHTML = `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg><span>Regenerate</span>`;
     btnRegen.addEventListener('click', async () => {
       setBusy(true, 'Regenerating AI draft...');
       if (typeof opts.onRegenerate === 'function') {
@@ -492,7 +638,7 @@
     btnSkip.type = 'button';
     btnSkip.className = 'autoref-btn autoref-btn-skip';
     btnSkip.id = 'autoref-btn-skip';
-    btnSkip.textContent = 'Skip';
+    btnSkip.innerHTML = `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg><span>Skip</span>`;
     btnSkip.addEventListener('click', async () => {
       setBusy(true, 'Skipping profile...');
       if (typeof opts.onSkip === 'function') {
@@ -523,6 +669,27 @@
     body.appendChild(countdownDiv);
 
     card.appendChild(body);
+
+    // Minimize toggle click
+    btnMin.addEventListener('click', (e) => {
+      e.stopPropagation();
+      isMinimized = !isMinimized;
+      if (isMinimized) {
+        body.style.display = 'none';
+        if (card.classList) card.classList.add('autoref-minimized');
+        else card.className = (card.className + ' autoref-minimized').trim();
+        btnMin.innerHTML = `<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" x2="14" y1="3" y2="10"/><line x1="3" x2="10" y1="21" y2="14"/></svg>`;
+      } else {
+        body.style.display = '';
+        if (card.classList) card.classList.remove('autoref-minimized');
+        else card.className = card.className.replace(/\s*autoref-minimized\b/, '');
+        btnMin.innerHTML = `<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" x2="19" y1="12" y2="12"/></svg>`;
+      }
+    });
+
+    // Attach dragging to header
+    attachDragHandler(card, header);
+
     document.body.appendChild(card);
     currentCard = card;
 
@@ -561,9 +728,9 @@
     if (message) setStatus(message);
     if (overlayOrb) {
       if (isBusy) {
-        overlayOrb.update({ state: 'composing', paused: false });
+        overlayOrb.update({ state: 'composing', paused: false, dark: true });
       } else {
-        overlayOrb.update({ state: 'breathing', paused: false });
+        overlayOrb.update({ state: 'breathing', paused: false, dark: true });
       }
     }
   }
@@ -598,11 +765,10 @@
     let skipBtn = typeof document !== 'undefined' ? document.getElementById('autoref-btn-skip-delay') : null;
 
     if (overlayOrb) {
-      overlayOrb.update({ state: 'searching', paused: false });
+      overlayOrb.update({ state: 'searching', paused: false, dark: true });
     }
 
     if (!section || !textEl) {
-      // If DOM unavailable (e.g. headless / stubbed test environment), resolve safely without hanging
       setTimeout(() => {
         if (typeof onSkip === 'function') onSkip();
       }, Math.min(Math.max(0, (durationSec || 0) * 1000), 50));
@@ -629,7 +795,7 @@
       if (finished) return;
       finished = true;
       if (overlayOrb) {
-        overlayOrb.update({ state: 'breathing', paused: false });
+        overlayOrb.update({ state: 'breathing', paused: false, dark: true });
       }
       if (activeCountdownTimer) {
         clearInterval(activeCountdownTimer);
@@ -685,6 +851,7 @@
     const card = document.getElementById(WIDGET_ID);
     if (card && card.parentNode) card.parentNode.removeChild(card);
     currentCard = null;
+    isMinimized = false;
   }
 
   function isVisible() {

@@ -1,5 +1,6 @@
-/* AutoRef options.js — Options page controller.
-   Loads and saves settings, syncs with local .env server, and tests AI. */
+/* AutoRef options.js — macOS System Settings Controller.
+   Manages category navigation, dual theme switching, model pill tags, live slider badges,
+   interactive variable chips, server sync, Thinking Orb studio, and AI smoke tests. */
 (function () {
   'use strict';
 
@@ -37,37 +38,189 @@
   const csvToArr = (s) => String(s || '').split(',').map((x) => x.trim()).filter(Boolean);
   const arrToCsv = (a) => (Array.isArray(a) ? a.join(', ') : '');
 
+  let envOrb = null;
+  let testAiOrb = null;
+  let showcaseOrb = null;
+  let currentTheme = 'dark';
+
+  function $(id) {
+    return document.getElementById(id);
+  }
+
+  // Dual Theme Management
+  async function initTheme() {
+    const d = await chrome.storage.local.get(['theme']);
+    if (d && d.theme) {
+      currentTheme = d.theme;
+    } else if (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
+      currentTheme = 'light';
+    } else {
+      currentTheme = 'dark';
+    }
+    applyTheme(currentTheme);
+  }
+
+  function applyTheme(theme) {
+    currentTheme = theme;
+    document.documentElement.setAttribute('data-theme', theme);
+    document.body.classList.toggle('theme-dark', theme === 'dark');
+
+    const sunIcon = document.querySelector('.sun-icon');
+    const moonIcon = document.querySelector('.moon-icon');
+    if (sunIcon && moonIcon) {
+      if (theme === 'dark') {
+        sunIcon.classList.remove('hidden');
+        moonIcon.classList.add('hidden');
+      } else {
+        sunIcon.classList.add('hidden');
+        moonIcon.classList.remove('hidden');
+      }
+    }
+
+    const isDark = theme === 'dark';
+    if (envOrb) envOrb.setDark(isDark);
+    if (testAiOrb) testAiOrb.setDark(isDark);
+  }
+
+  async function toggleTheme() {
+    const next = currentTheme === 'dark' ? 'light' : 'dark';
+    applyTheme(next);
+    await chrome.storage.local.set({ theme: next });
+  }
+
+  // Category Navigation
+  function initNavigation() {
+    const navItems = document.querySelectorAll('.nav-item');
+    navItems.forEach((item) => {
+      item.addEventListener('click', () => {
+        const targetId = item.getAttribute('data-target');
+        if (!targetId) return;
+
+        navItems.forEach((n) => n.classList.remove('active'));
+        item.classList.add('active');
+
+        const sections = document.querySelectorAll('.settings-section');
+        sections.forEach((sec) => {
+          sec.classList.toggle('active', sec.id === targetId);
+        });
+      });
+    });
+  }
+
+  // Model Pill Selection
+  function initModelPills() {
+    const pills = document.querySelectorAll('.model-pill');
+    const modelInput = $('model');
+
+    pills.forEach((pill) => {
+      pill.addEventListener('click', () => {
+        const selectedModel = pill.getAttribute('data-model');
+        if (selectedModel && modelInput) {
+          modelInput.value = selectedModel;
+          updateActiveModelPill(selectedModel);
+        }
+      });
+    });
+
+    if (modelInput) {
+      modelInput.addEventListener('input', () => {
+        updateActiveModelPill(modelInput.value);
+      });
+    }
+  }
+
+  function updateActiveModelPill(modelName) {
+    const pills = document.querySelectorAll('.model-pill');
+    let matched = false;
+    pills.forEach((pill) => {
+      const isMatch = pill.getAttribute('data-model') === modelName;
+      pill.classList.toggle('active', isMatch);
+      if (isMatch) matched = true;
+    });
+    return matched;
+  }
+
+  // Variable Chips for Template
+  function initVariableChips() {
+    const chips = document.querySelectorAll('.var-chip');
+    const tplInput = $('fallbackTemplate');
+
+    chips.forEach((chip) => {
+      chip.addEventListener('click', () => {
+        const token = chip.getAttribute('data-var');
+        if (!token || !tplInput) return;
+
+        const start = tplInput.selectionStart;
+        const end = tplInput.selectionEnd;
+        const val = tplInput.value;
+
+        if (typeof start === 'number' && typeof end === 'number') {
+          tplInput.value = val.substring(0, start) + token + val.substring(end);
+          tplInput.selectionStart = tplInput.selectionEnd = start + token.length;
+        } else {
+          tplInput.value = val + ' ' + token;
+        }
+
+        tplInput.focus();
+        renderPreview();
+      });
+    });
+  }
+
+  // Sliders with floating live badges
+  function initSliderBadges() {
+    const tempInput = $('temperature');
+    const tempBadge = $('temperature-badge');
+    if (tempInput && tempBadge) {
+      const updateTemp = () => {
+        tempBadge.textContent = Number(tempInput.value).toFixed(2);
+      };
+      tempInput.addEventListener('input', updateTemp);
+      updateTemp();
+    }
+
+    const capInput = $('dailyCap');
+    const capBadge = $('dailyCap-badge');
+    if (capInput && capBadge) {
+      const updateCap = () => {
+        capBadge.textContent = String(capInput.value);
+      };
+      capInput.addEventListener('input', updateCap);
+      updateCap();
+    }
+  }
+
   function renderPreview() {
     try {
-      const tpl = document.getElementById('fallbackTemplate').value;
+      const tpl = $('fallbackTemplate')?.value;
       const firstName = SAMPLE.name.split(' ')[0];
       const vars = {
-        firstName: firstName, name: SAMPLE.name, role: SAMPLE.role, company: SAMPLE.company,
-        customNote: document.getElementById('customNote').value || '',
+        firstName: firstName,
+        name: SAMPLE.name,
+        role: SAMPLE.role,
+        company: SAMPLE.company,
+        customNote: $('customNote')?.value || '',
       };
       const out = String(tpl || '').replace(/\{\{\s*([A-Za-z0-9_]+)\s*\}\}/g, (m, k) =>
         vars[k] === undefined || vars[k] === null ? '' : String(vars[k]),
       ).replace(/[ \t]{2,}/g, ' ').replace(/\s+\./g, '.').trim();
-      document.getElementById('tpl-preview').textContent = 'Preview: ' + out;
-    } catch (e) {
+      const prevEl = $('tpl-preview');
+      if (prevEl) prevEl.textContent = out || '(Template output will preview here)';
+    } catch (_) {
       /* preview never blocks */
     }
   }
 
-  let envOrb = null;
-  let testAiOrb = null;
-  let showcaseOrb = null;
-
   async function checkServerSync() {
-    const envStatus = document.getElementById('env-status');
-    const envOrbSlot = document.getElementById('env-orb');
+    const envStatus = $('env-status');
+    const envOrbSlot = $('env-orb');
 
     if (envOrbSlot && typeof ThinkingOrb !== 'undefined') {
       envOrbSlot.classList.remove('hidden');
       if (!envOrb) {
-        envOrb = ThinkingOrb.mount(envOrbSlot, { state: 'connecting', size: 20 });
+        envOrb = ThinkingOrb.mount(envOrbSlot, { state: 'connecting', size: 20, dark: currentTheme === 'dark' });
       } else {
-        envOrb.update({ state: 'connecting', size: 20, paused: false });
+        envOrb.update({ state: 'connecting', size: 20, paused: false, dark: currentTheme === 'dark' });
       }
     }
 
@@ -79,20 +232,18 @@
           if (envOrbSlot) envOrbSlot.classList.add('hidden');
           if (envStatus) {
             envStatus.textContent = '🟢 Server connected on port ' + conf.port +
-              ' — API Key from .env: ' + (conf.hasApiKey ? 'Loaded' : 'Not set in .env') +
-              ' — Agent Model: ' + conf.model;
-            envStatus.style.borderColor = '#81c784';
-            envStatus.style.background = '#e8f5e9';
-            envStatus.style.color = '#1b5e20';
+              ' · API Key: ' + (conf.hasApiKey ? 'Active in .env' : 'Not configured in .env') +
+              ' · Model: ' + conf.model;
           }
-          const apiKeyEl = document.getElementById('apiKey');
+          const apiKeyEl = $('apiKey');
           if (apiKeyEl) {
             apiKeyEl.value = conf.hasApiKey
               ? '●●●●●●●● (Active in .env)'
-              : '⚠️ Not set in .env (add API_KEY=nvapi-... to .env)';
+              : '⚠️ Add API_KEY to .env in project root';
           }
-          if (!document.getElementById('model').value && conf.model) {
-            document.getElementById('model').value = conf.model;
+          if (!$('model')?.value && conf.model) {
+            $('model').value = conf.model;
+            updateActiveModelPill(conf.model);
           }
           return;
         }
@@ -101,19 +252,18 @@
 
     if (envOrbSlot) envOrbSlot.classList.add('hidden');
     if (envStatus) {
-      envStatus.textContent = '⚠️ Local server offline. Run "start-server.bat" to load API key from .env.';
-      envStatus.style.borderColor = '#ffcc80';
-      envStatus.style.background = '#fff3e0';
-      envStatus.style.color = '#e65100';
+      envStatus.textContent = '⚠️ Local companion server offline. Run "start-server.bat" to enable .env syncing.';
     }
   }
 
   async function load() {
     const d = await chrome.storage.local.get(['settings']);
     const s = Object.assign({}, DEFAULTS, d.settings || {});
-    const $ = (id) => document.getElementById(id);
+
     $('apiKey').value = s.apiKey ? '●●●●●●●● (Loaded from .env)' : '(Managed via .env file)';
     $('model').value = s.model || DEFAULT_AGENT_MODEL;
+    updateActiveModelPill(s.model || DEFAULT_AGENT_MODEL);
+
     $('aiMode').checked = !!s.aiMode;
     $('mockAI').checked = !!s.mockAI;
     $('temperature').value = s.temperature;
@@ -136,26 +286,35 @@
     $('blacklistProfiles').value = arrToCsv(s.blacklistProfiles);
     $('blacklistCompanies').value = arrToCsv(s.blacklistCompanies);
     $('mockMode').checked = !!s.mockMode;
-    document.getElementById('dryrun-banner').classList.toggle('hidden', !s.dryRun);
+
+    $('dryrun-banner').classList.toggle('hidden', !s.dryRun);
+
+    // Refresh live badge indicators
+    const tempBadge = $('temperature-badge');
+    if (tempBadge) tempBadge.textContent = Number(s.temperature).toFixed(2);
+    const capBadge = $('dailyCap-badge');
+    if (capBadge) capBadge.textContent = String(s.dailyCap);
+
     renderPreview();
     checkServerSync();
   }
 
   async function save(e) {
     if (e) e.preventDefault();
-    const $ = (id) => document.getElementById(id);
     const prevData = await chrome.storage.local.get(['settings']);
     const prevSettings = prevData.settings || {};
     const wasDry = prevSettings;
     const wasDryRun = wasDry ? wasDry.dryRun !== false : true;
     const dryRun = $('dryRun').checked;
+
     if (wasDryRun && !dryRun) {
-      const ok = confirm('Turn OFF dry-run? The extension will be able to send real LinkedIn messages.');
+      const ok = confirm('Disable Dry-Run Mode? AutoRef will be able to send real LinkedIn messages to your connections.');
       if (!ok) {
         $('dryRun').checked = true;
         return;
       }
     }
+
     const settings = {
       apiKey: prevSettings.apiKey || '',
       model: $('model').value.trim() || DEFAULT_AGENT_MODEL,
@@ -188,21 +347,34 @@
       blacklistCompanies: csvToArr($('blacklistCompanies').value),
       mockMode: $('mockMode').checked,
     };
+
     await chrome.storage.local.set({ settings: settings });
-    document.getElementById('status').textContent = 'Saved ' + new Date().toLocaleTimeString();
-    document.getElementById('dryrun-banner').classList.toggle('hidden', !settings.dryRun);
+
+    const statusEl = $('status');
+    if (statusEl) {
+      statusEl.textContent = '✓ Saved successfully at ' + new Date().toLocaleTimeString();
+      statusEl.style.color = 'var(--accent-green)';
+      setTimeout(() => {
+        if (statusEl.textContent.startsWith('✓ Saved')) {
+          statusEl.textContent = 'Ready';
+          statusEl.style.color = '';
+        }
+      }, 4000);
+    }
+
+    $('dryrun-banner').classList.toggle('hidden', !settings.dryRun);
   }
 
   async function testAI() {
-    const out = document.getElementById('test-ai-out');
-    const orbSlot = document.getElementById('test-ai-orb');
+    const out = $('test-ai-out');
+    const orbSlot = $('test-ai-orb');
 
     if (orbSlot && typeof ThinkingOrb !== 'undefined') {
       orbSlot.classList.remove('hidden');
       if (!testAiOrb) {
-        testAiOrb = ThinkingOrb.mount(orbSlot, { state: 'composing', size: 20 });
+        testAiOrb = ThinkingOrb.mount(orbSlot, { state: 'composing', size: 20, dark: currentTheme === 'dark' });
       } else {
-        testAiOrb.update({ state: 'composing', size: 20, paused: false });
+        testAiOrb.update({ state: 'composing', size: 20, paused: false, dark: currentTheme === 'dark' });
       }
     }
 
@@ -231,14 +403,14 @@
   }
 
   function initShowcase() {
-    const previewContainer = document.getElementById('showcase-orb-preview');
+    const previewContainer = $('showcase-orb-preview');
     if (!previewContainer || typeof ThinkingOrb === 'undefined') return;
 
-    const stateSelect = document.getElementById('orb-state-select');
-    const sizeSelect = document.getElementById('orb-size-select');
-    const speedSelect = document.getElementById('orb-speed-select');
-    const darkToggle = document.getElementById('orb-dark-toggle');
-    const pausedToggle = document.getElementById('orb-paused-toggle');
+    const stateSelect = $('orb-state-select');
+    const sizeSelect = $('orb-size-select');
+    const speedSelect = $('orb-speed-select');
+    const darkToggle = $('orb-dark-toggle');
+    const pausedToggle = $('orb-paused-toggle');
 
     showcaseOrb = ThinkingOrb.mount(previewContainer, {
       state: stateSelect ? stateSelect.value : 'composing',
@@ -268,24 +440,38 @@
     }
   }
 
-  document.addEventListener('DOMContentLoaded', () => {
-    load().catch((e) => console.error('[AutoRef options]', e));
+  document.addEventListener('DOMContentLoaded', async () => {
+    await initTheme();
+    initNavigation();
+    initModelPills();
+    initVariableChips();
+    initSliderBadges();
     initShowcase();
-    document.getElementById('opts').addEventListener('submit', save);
-    document.getElementById('test-ai').addEventListener('click', testAI);
-    document.getElementById('fallbackTemplate').addEventListener('input', renderPreview);
-    document.getElementById('customNote').addEventListener('input', renderPreview);
+
+    load().catch((e) => console.error('[AutoRef options]', e));
+
+    $('opts')?.addEventListener('submit', save);
+    $('test-ai')?.addEventListener('click', testAI);
+    $('fallbackTemplate')?.addEventListener('input', renderPreview);
+    $('customNote')?.addEventListener('input', renderPreview);
+    $('theme-toggle')?.addEventListener('click', toggleTheme);
+
     const confirmClear = (label, key) => async () => {
-      if (!confirm('Clear ' + label + '?')) return;
+      if (!confirm('Are you sure you want to clear ' + label + '? This action cannot be undone.')) return;
       const patch = {};
       if (key === 'queue') patch.queue = [];
       if (key === 'sentLog') patch.sentLog = {};
       if (key === 'msgCache') patch.msgCache = {};
       await chrome.storage.local.set(patch);
-      document.getElementById('status').textContent = 'Cleared ' + label + '.';
+      const statusEl = $('status');
+      if (statusEl) {
+        statusEl.textContent = 'Cleared ' + label + '.';
+        setTimeout(() => { statusEl.textContent = 'Ready'; }, 3000);
+      }
     };
-    document.getElementById('clear-queue').addEventListener('click', confirmClear('queue', 'queue'));
-    document.getElementById('clear-sent').addEventListener('click', confirmClear('sentLog', 'sentLog'));
-    document.getElementById('clear-cache').addEventListener('click', confirmClear('cache', 'msgCache'));
+
+    $('clear-queue')?.addEventListener('click', confirmClear('queue', 'queue'));
+    $('clear-sent')?.addEventListener('click', confirmClear('sent history', 'sentLog'));
+    $('clear-cache')?.addEventListener('click', confirmClear('message cache', 'msgCache'));
   });
 })();

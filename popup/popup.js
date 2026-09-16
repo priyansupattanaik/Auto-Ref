@@ -1,6 +1,6 @@
-/* AutoRef popup.js — Sidebar & popup controller.
-   Automatically connects to / starts local companion server,
-   loads API key and agent model from .env, and manages referral queue. */
+/* AutoRef popup.js — macOS Frosted Glassmorphism Sidebar Controller.
+   Manages tab navigation, dual theme switching, telemetry circular progress ring,
+   interactive review cards with live editing, companion server status, and Thinking Orbs. */
 (function () {
   'use strict';
 
@@ -24,9 +24,85 @@
   let headerOrb = null;
   let serverOrb = null;
   let actionOrb = null;
+  let currentTheme = 'dark';
 
   function $(id) {
     return document.getElementById(id);
+  }
+
+  function countWords(str) {
+    if (!str) return 0;
+    const m = String(str).trim().match(/\S+/g);
+    return m ? m.length : 0;
+  }
+
+  // Dual Theme Management
+  async function initTheme() {
+    const d = await chrome.storage.local.get(['theme']);
+    if (d && d.theme) {
+      currentTheme = d.theme;
+    } else if (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
+      currentTheme = 'light';
+    } else {
+      currentTheme = 'dark';
+    }
+    applyTheme(currentTheme);
+  }
+
+  function applyTheme(theme) {
+    currentTheme = theme;
+    document.documentElement.setAttribute('data-theme', theme);
+    document.body.classList.toggle('theme-dark', theme === 'dark');
+
+    const sunIcon = document.querySelector('.sun-icon');
+    const moonIcon = document.querySelector('.moon-icon');
+    if (sunIcon && moonIcon) {
+      if (theme === 'dark') {
+        sunIcon.classList.remove('hidden');
+        moonIcon.classList.add('hidden');
+      } else {
+        sunIcon.classList.add('hidden');
+        moonIcon.classList.remove('hidden');
+      }
+    }
+
+    const isDark = theme === 'dark';
+    if (headerOrb) headerOrb.setDark(isDark);
+    if (serverOrb) serverOrb.setDark(isDark);
+    if (actionOrb) actionOrb.setDark(isDark);
+  }
+
+  async function toggleTheme() {
+    const next = currentTheme === 'dark' ? 'light' : 'dark';
+    applyTheme(next);
+    await chrome.storage.local.set({ theme: next });
+  }
+
+  // Segmented Tab Management
+  function initTabs() {
+    const tabs = document.querySelectorAll('.segmented-item');
+    tabs.forEach((tab) => {
+      tab.addEventListener('click', () => {
+        const targetTab = tab.getAttribute('data-tab');
+        switchTab(targetTab);
+      });
+    });
+  }
+
+  function switchTab(tabName) {
+    const tabs = document.querySelectorAll('.segmented-item');
+    const panels = document.querySelectorAll('.tab-panel');
+
+    tabs.forEach((t) => {
+      const isTarget = t.getAttribute('data-tab') === tabName;
+      t.classList.toggle('active', isTarget);
+      t.setAttribute('aria-selected', isTarget ? 'true' : 'false');
+    });
+
+    panels.forEach((p) => {
+      const isTarget = p.id === 'panel-' + tabName;
+      p.classList.toggle('active', isTarget);
+    });
   }
 
   async function read() {
@@ -82,6 +158,7 @@
     const btn = $('server-toggle-btn');
     const modelEl = $('active-model');
     const serverOrbSlot = $('server-orb');
+    const keyStatusEl = $('engine-key-status');
 
     if (modelEl) modelEl.textContent = serverStatus.model || DEFAULT_AGENT_MODEL;
 
@@ -92,14 +169,15 @@
       if (serverOrbSlot) {
         serverOrbSlot.classList.remove('hidden');
         if (!serverOrb && typeof ThinkingOrb !== 'undefined') {
-          serverOrb = ThinkingOrb.mount(serverOrbSlot, { state: 'connecting', size: 20 });
+          serverOrb = ThinkingOrb.mount(serverOrbSlot, { state: 'connecting', size: 20, dark: currentTheme === 'dark' });
         } else if (serverOrb) {
-          serverOrb.update({ state: 'connecting', size: 20, paused: false });
+          serverOrb.update({ state: 'connecting', size: 20, paused: false, dark: currentTheme === 'dark' });
         }
       }
       label.textContent = 'Server: Connecting…';
       sub.textContent = 'Checking local companion server on port ' + serverStatus.port;
       if (btn) btn.classList.add('hidden');
+      if (keyStatusEl) keyStatusEl.textContent = 'Checking…';
       return;
     }
 
@@ -113,8 +191,10 @@
       if (btn) btn.classList.add('hidden');
       if (serverStatus.hasApiKey) {
         sub.textContent = 'API key loaded from .env · Port ' + serverStatus.port;
+        if (keyStatusEl) keyStatusEl.textContent = 'Active in .env';
       } else {
         sub.textContent = '⚠️ Add API_KEY to .env file to enable AI';
+        if (keyStatusEl) keyStatusEl.textContent = 'Missing API_KEY in .env';
       }
     } else {
       dot.classList.add('red');
@@ -122,8 +202,10 @@
       sub.textContent = 'Auto-start failed. Run start-server.bat';
       if (btn) {
         btn.classList.remove('hidden');
-        btn.textContent = 'Start';
+        const btnText = btn.querySelector('span');
+        if (btnText) btnText.textContent = 'Start';
       }
+      if (keyStatusEl) keyStatusEl.textContent = 'Server offline';
     }
   }
 
@@ -165,12 +247,10 @@
     } catch (_) {}
 
     if (autoStart) {
-      // Trigger background server startup via native messaging
       try {
         await chrome.runtime.sendMessage({ type: 'AUTOREF_START_SERVER' });
       } catch (_) {}
 
-      // Retry up to 5 times (total ~2 seconds) for Windows Node startup
       for (let i = 0; i < 5; i++) {
         await new Promise((r) => setTimeout(r, 400));
         try {
@@ -196,6 +276,23 @@
     return false;
   }
 
+  function updateTelemetryRing(sentToday, dailyCap) {
+    const ring = $('telemetry-ring');
+    const percentEl = $('telemetry-percent');
+    if (!ring || !percentEl) return;
+
+    const cap = Math.max(1, dailyCap || 15);
+    const sent = Math.max(0, sentToday || 0);
+    const pct = Math.min(100, Math.round((sent / cap) * 100));
+
+    // Circle radius = 34, circumference = 2 * PI * 34 ≈ 213.628
+    const circumference = 2 * Math.PI * 34;
+    const offset = circumference - (pct / 100) * circumference;
+
+    ring.style.strokeDashoffset = String(offset);
+    percentEl.textContent = pct + '%';
+  }
+
   async function render(tabUrl) {
     try {
       const s = await read();
@@ -205,18 +302,50 @@
       $('c-failed').textContent = String(s.stats.failed);
       $('c-ai').textContent = String(s.stats.aiUsed);
       $('c-fallback').textContent = String(s.stats.fallbackUsed);
-      $('run-status').textContent =
-        'Status: ' + (s.runState.running ? 'running (' + s.runState.phase + ')' : s.runState.phase);
-      $('start-pause').textContent = s.runState.running ? 'Pause' : 'Start';
+
+      // Update progress ring
+      updateTelemetryRing(s.stats.sentToday, s.settings.dailyCap);
+
+      const statusText = s.runState.running ? 'running (' + s.runState.phase + ')' : s.runState.phase;
+      $('run-status').textContent = statusText;
+
+      // Update Hero Button
+      const heroBtn = $('start-pause');
+      const heroLabel = $('hero-btn-label');
+      const heroIcon = $('hero-btn-icon');
+
+      if (s.runState.running) {
+        if (heroLabel) heroLabel.textContent = 'Pause';
+        else heroBtn.textContent = 'Pause';
+        heroBtn.classList.add('is-paused');
+        if (heroIcon) {
+          heroIcon.innerHTML = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect width="4" height="16" x="6" y="4"/><rect width="4" height="16" x="14" y="4"/></svg>`;
+        }
+      } else {
+        if (heroLabel) heroLabel.textContent = 'Start';
+        else heroBtn.textContent = 'Start';
+        heroBtn.classList.remove('is-paused');
+        if (heroIcon) {
+          heroIcon.innerHTML = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="6 3 20 12 6 21 6 3"/></svg>`;
+        }
+      }
+
       $('dryrun-banner').classList.toggle('hidden', !s.settings.dryRun);
+
       const lr = lastReason(s.queue);
       $('current-action').textContent =
         'Action: ' + s.runState.phase +
         (s.runState.currentUrn ? ' · ' + s.runState.currentUrn : '') +
         (lr ? ' · ' + lr : '');
-      $('hint').textContent = hintFor(s, tabUrl);
 
-      // Manage thinking orbs for AI generation ("composing"), connection search ("searching"), server connecting ("connecting")
+      const hintText = hintFor(s, tabUrl);
+      const hintEl = $('hint');
+      if (hintEl) {
+        hintEl.textContent = hintText;
+        hintEl.classList.toggle('hidden', !hintText);
+      }
+
+      // Thinking Orb animation states
       const headerOrbSlot = $('header-orb');
       const actionOrbSlot = $('action-orb');
       let targetState = 'breathing';
@@ -233,11 +362,12 @@
         targetState = 'breathing';
       }
 
+      const isDark = currentTheme === 'dark';
       if (headerOrbSlot && typeof ThinkingOrb !== 'undefined') {
         if (!headerOrb) {
-          headerOrb = ThinkingOrb.mount(headerOrbSlot, { state: targetState, size: 20 });
+          headerOrb = ThinkingOrb.mount(headerOrbSlot, { state: targetState, size: 20, dark: isDark });
         } else {
-          headerOrb.update({ state: targetState, size: 20 });
+          headerOrb.update({ state: targetState, size: 20, dark: isDark });
         }
       }
 
@@ -245,36 +375,128 @@
         if (s.runState.running) {
           actionOrbSlot.classList.remove('hidden');
           if (!actionOrb) {
-            actionOrb = ThinkingOrb.mount(actionOrbSlot, { state: targetState, size: 20 });
+            actionOrb = ThinkingOrb.mount(actionOrbSlot, { state: targetState, size: 20, dark: isDark });
           } else {
-            actionOrb.update({ state: targetState, size: 20 });
+            actionOrb.update({ state: targetState, size: 20, dark: isDark });
           }
         } else {
           actionOrbSlot.classList.add('hidden');
         }
       }
 
+      // Review Queue Section
       const awaiting = s.queue.filter((q) => q.status === 'awaiting_review');
-      $('review-section').classList.toggle('hidden', awaiting.length === 0);
+      const reviewBadge = $('review-badge');
+      const reviewCountPill = $('review-count-pill');
+      const emptyState = $('review-empty-state');
+
+      if (reviewBadge) {
+        reviewBadge.textContent = String(awaiting.length);
+        reviewBadge.classList.toggle('hidden', awaiting.length === 0);
+      }
+      if (reviewCountPill) {
+        reviewCountPill.textContent = String(awaiting.length);
+      }
+      if (emptyState) {
+        emptyState.classList.toggle('hidden', awaiting.length > 0);
+      }
+
       const ul = $('review-list');
-      ul.textContent = '';
-      for (const item of awaiting.slice(0, 20)) {
-        const li = document.createElement('li');
-        const name = document.createElement('strong');
-        name.textContent = item.name + ' (' + item.company + ') ';
-        const prev = document.createElement('div');
-        prev.textContent = draftFor(s, item.urn).slice(0, 220);
-        const ap = document.createElement('button');
-        ap.textContent = 'Approve';
-        ap.addEventListener('click', () => review(item.urn, 'approve'));
-        const sk = document.createElement('button');
-        sk.textContent = 'Skip';
-        sk.addEventListener('click', () => review(item.urn, 'skip'));
-        li.appendChild(name);
-        li.appendChild(prev);
-        li.appendChild(ap);
-        li.appendChild(sk);
-        ul.appendChild(li);
+      if (ul) {
+        ul.textContent = '';
+        for (const item of awaiting.slice(0, 20)) {
+          const li = document.createElement('li');
+          li.className = 'review-item-card';
+
+          // Card Header with Avatar & Name
+          const cardHeader = document.createElement('div');
+          cardHeader.className = 'review-card-header';
+
+          const recInfo = document.createElement('div');
+          recInfo.className = 'review-recipient-info';
+
+          const avatar = document.createElement('div');
+          avatar.className = 'recipient-avatar';
+          const initials = (item.name || 'U').split(' ').map((n) => n[0]).slice(0, 2).join('');
+          avatar.textContent = initials;
+
+          const meta = document.createElement('div');
+          meta.className = 'recipient-meta';
+
+          const nameEl = document.createElement('span');
+          nameEl.className = 'recipient-name';
+          nameEl.textContent = item.name || 'Connection';
+
+          const subEl = document.createElement('span');
+          subEl.className = 'recipient-sub';
+          subEl.textContent = (item.role ? item.role + ' ' : '') + (item.company ? '@ ' + item.company : '');
+
+          meta.appendChild(nameEl);
+          meta.appendChild(subEl);
+          recInfo.appendChild(avatar);
+          recInfo.appendChild(meta);
+          cardHeader.appendChild(recInfo);
+          li.appendChild(cardHeader);
+
+          // Draft Container with Live Editing
+          const draftBox = document.createElement('div');
+          draftBox.className = 'draft-edit-box';
+
+          const draftHeader = document.createElement('div');
+          draftHeader.className = 'draft-box-header';
+
+          const draftLabel = document.createElement('span');
+          draftLabel.className = 'draft-box-label';
+          draftLabel.textContent = 'Draft Message';
+
+          const wordBadge = document.createElement('span');
+          wordBadge.className = 'draft-word-badge';
+          const initialDraft = draftFor(s, item.urn);
+          wordBadge.textContent = countWords(initialDraft) + ' words';
+
+          draftHeader.appendChild(draftLabel);
+          draftHeader.appendChild(wordBadge);
+          draftBox.appendChild(draftHeader);
+
+          const textarea = document.createElement('textarea');
+          textarea.className = 'review-draft-textarea';
+          textarea.value = initialDraft;
+          textarea.placeholder = 'Message draft...';
+          textarea.addEventListener('input', () => {
+            wordBadge.textContent = countWords(textarea.value) + ' words';
+          });
+          draftBox.appendChild(textarea);
+          li.appendChild(draftBox);
+
+          // Action Buttons: Approve & Send, Regenerate, Skip
+          const actionsRow = document.createElement('div');
+          actionsRow.className = 'review-card-actions';
+
+          const ap = document.createElement('button');
+          ap.type = 'button';
+          ap.className = 'btn-review-action btn-approve';
+          ap.innerHTML = `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg><span>Approve</span>`;
+          ap.addEventListener('click', () => review(item.urn, 'approve', textarea.value));
+
+          const rg = document.createElement('button');
+          rg.type = 'button';
+          rg.className = 'btn-review-action btn-regen';
+          rg.innerHTML = `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg><span>Regenerate</span>`;
+          rg.addEventListener('click', () => review(item.urn, 'regenerate'));
+
+          const sk = document.createElement('button');
+          sk.type = 'button';
+          sk.className = 'btn-review-action btn-skip';
+          sk.innerHTML = `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg><span>Skip</span>`;
+          sk.addEventListener('click', () => review(item.urn, 'skip'));
+
+          actionsRow.appendChild(ap);
+          actionsRow.appendChild(rg);
+          actionsRow.appendChild(sk);
+          li.appendChild(actionsRow);
+
+          ul.appendChild(li);
+        }
       }
     } catch (e) {
       console.error('[AutoRef popup]', e);
@@ -291,7 +513,7 @@
       const t = await activeTab();
       if (t && t.id != null) await chrome.tabs.sendMessage(t.id, payload);
     } catch (e) {
-      /* tab may not have the content script — the storage poller covers it */
+      /* tab may not have the content script — storage poller covers it */
     }
   }
 
@@ -316,8 +538,28 @@
     render(t && t.url);
   }
 
-  async function review(urn, action) {
+  async function review(urn, action, customText) {
     const s = await read();
+    if (action === 'regenerate') {
+      // Clear cache key to force fresh generation
+      const key = urn + '::' + s.settings.model + '::v1';
+      const cache = Object.assign({}, s.msgCache);
+      delete cache[key];
+      await chrome.storage.local.set({ msgCache: cache });
+      await notifyTab({ type: 'AUTOREF_CMD', cmd: { cmd: 'regenerate', urn: urn } });
+      const t = await activeTab();
+      render(t && t.url);
+      return;
+    }
+
+    if (action === 'approve' && customText) {
+      // Save edited draft into msgCache
+      const key = urn + '::' + s.settings.model + '::v1';
+      const cache = Object.assign({}, s.msgCache);
+      cache[key] = { message: customText, source: 'user_edited', ts: Date.now() };
+      await chrome.storage.local.set({ msgCache: cache });
+    }
+
     const next = s.queue.map((q) => {
       if (!q || q.urn !== urn) return q;
       if (action === 'skip') return Object.assign({}, q, { status: 'skipped', reason: 'review skipped by user' });
@@ -339,18 +581,34 @@
     try {
       const t = await activeTab();
       if (!t || t.id == null) {
-        $('hint').textContent = 'No active tab.';
+        const h = $('hint');
+        if (h) { h.textContent = 'No active tab.'; h.classList.remove('hidden'); }
         return;
       }
       await chrome.scripting.executeScript({ target: { tabId: t.id }, files: CONTENT_FILES });
-      $('hint').textContent = 'Attached. The loop runs in this tab now.';
+      const h = $('hint');
+      if (h) {
+        h.textContent = 'Attached. The loop runs in this tab now.';
+        h.classList.remove('hidden');
+      }
     } catch (e) {
-      $('hint').textContent = 'Attach failed: ' + String((e && e.message) || e);
+      const h = $('hint');
+      if (h) {
+        h.textContent = 'Attach failed: ' + String((e && e.message) || e);
+        h.classList.remove('hidden');
+      }
     }
   }
 
+  function openOptions() {
+    chrome.runtime.openOptionsPage();
+  }
+
   document.addEventListener('DOMContentLoaded', async () => {
-    // Automatically start or check companion server upon sidebar load
+    await initTheme();
+    initTabs();
+
+    // Check / start server
     checkServer(true);
 
     const t = await activeTab().catch(() => null);
@@ -362,12 +620,14 @@
       checkServer(false);
     }, 2000);
 
-    $('open-options').addEventListener('click', (e) => {
-      e.preventDefault();
-      chrome.runtime.openOptionsPage();
-    });
-    $('start-pause').addEventListener('click', toggleRun);
-    $('attach').addEventListener('click', attach);
-    $('server-toggle-btn').addEventListener('click', () => checkServer(true));
+    // Event listeners
+    $('open-options')?.addEventListener('click', openOptions);
+    $('footer-options-link')?.addEventListener('click', (e) => { e.preventDefault(); openOptions(); });
+    $('engine-options-link')?.addEventListener('click', (e) => { e.preventDefault(); openOptions(); });
+    $('btn-open-options-alt')?.addEventListener('click', openOptions);
+    $('start-pause')?.addEventListener('click', toggleRun);
+    $('attach')?.addEventListener('click', attach);
+    $('server-toggle-btn')?.addEventListener('click', () => checkServer(true));
+    $('theme-toggle')?.addEventListener('click', toggleTheme);
   });
 })();
