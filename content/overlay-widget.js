@@ -51,8 +51,16 @@
     #${WIDGET_ID} .autoref-header-title {
       display: flex;
       align-items: center;
-      gap: 6px;
-      font-size: 13px;
+      gap: 8px;
+      font-size: 13.5px;
+      font-weight: 700;
+    }
+    #${WIDGET_ID} .autoref-header-title img.autoref-logo {
+      width: 20px;
+      height: 20px;
+      object-fit: contain;
+      display: inline-block;
+      vertical-align: middle;
     }
     #${WIDGET_ID} .autoref-badge {
       background: rgba(255, 255, 255, 0.25);
@@ -64,10 +72,21 @@
       text-transform: uppercase;
       letter-spacing: 0.5px;
     }
+    #${WIDGET_ID} .autoref-status-container {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    #${WIDGET_ID} .autoref-header-orb {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 0;
+    }
     #${WIDGET_ID} .autoref-status-tag {
       font-size: 11px;
-      opacity: 0.9;
-      font-weight: 400;
+      opacity: 0.92;
+      font-weight: 500;
     }
     #${WIDGET_ID} .autoref-body {
       padding: 14px;
@@ -326,6 +345,13 @@
   // Active widget instance state
   let currentCard = null;
   let activeCountdownTimer = null;
+  let overlayOrb = null;
+
+  function setOrbState(state) {
+    if (overlayOrb && typeof ThinkingOrb !== 'undefined') {
+      overlayOrb.update({ state: state, paused: false });
+    }
+  }
 
   function render(options) {
     ensureStyles();
@@ -346,14 +372,41 @@
     header.className = 'autoref-header';
     const title = document.createElement('div');
     title.className = 'autoref-header-title';
-    title.innerHTML = '<span>⚡ AutoRef</span><span class="autoref-badge">Review Queue</span>';
+
+    let logoMarkup = '<span>⚡</span>';
+    try {
+      if (typeof chrome !== 'undefined' && chrome.runtime && typeof chrome.runtime.getURL === 'function') {
+        const logoSrc = chrome.runtime.getURL('icons/icon32.png');
+        if (logoSrc) {
+          logoMarkup = `<img src="${logoSrc}" class="autoref-logo" alt="AutoRef Logo" />`;
+        }
+      }
+    } catch (_) {}
+
+    title.innerHTML = `${logoMarkup}<span>AutoRef</span><span class="autoref-badge">Review Queue</span>`;
+
+    const statusContainer = document.createElement('div');
+    statusContainer.className = 'autoref-status-container';
+
+    const orbSlot = document.createElement('div');
+    orbSlot.id = 'autoref-header-orb';
+    orbSlot.className = 'autoref-header-orb';
+
     const statusTag = document.createElement('div');
     statusTag.className = 'autoref-status-tag';
     statusTag.id = 'autoref-status-text';
     statusTag.textContent = status;
+
+    statusContainer.appendChild(orbSlot);
+    statusContainer.appendChild(statusTag);
+
     header.appendChild(title);
-    header.appendChild(statusTag);
+    header.appendChild(statusContainer);
     card.appendChild(header);
+
+    if (typeof ThinkingOrb !== 'undefined') {
+      overlayOrb = ThinkingOrb.mount(orbSlot, { state: 'breathing', size: 20, dark: true });
+    }
 
     // Body
     const body = document.createElement('div');
@@ -506,6 +559,13 @@
     const btns = card.querySelectorAll('button, textarea');
     btns.forEach((b) => (b.disabled = !!isBusy));
     if (message) setStatus(message);
+    if (overlayOrb) {
+      if (isBusy) {
+        overlayOrb.update({ state: 'composing', paused: false });
+      } else {
+        overlayOrb.update({ state: 'breathing', paused: false });
+      }
+    }
   }
 
   function ensureCountdownSection() {
@@ -537,6 +597,10 @@
     let textEl = typeof document !== 'undefined' ? document.getElementById('autoref-countdown-text') : null;
     let skipBtn = typeof document !== 'undefined' ? document.getElementById('autoref-btn-skip-delay') : null;
 
+    if (overlayOrb) {
+      overlayOrb.update({ state: 'searching', paused: false });
+    }
+
     if (!section || !textEl) {
       // If DOM unavailable (e.g. headless / stubbed test environment), resolve safely without hanging
       setTimeout(() => {
@@ -564,6 +628,9 @@
     const finish = () => {
       if (finished) return;
       finished = true;
+      if (overlayOrb) {
+        overlayOrb.update({ state: 'breathing', paused: false });
+      }
       if (activeCountdownTimer) {
         clearInterval(activeCountdownTimer);
         activeCountdownTimer = null;
@@ -607,6 +674,10 @@
   }
 
   function remove() {
+    if (overlayOrb) {
+      overlayOrb.destroy();
+      overlayOrb = null;
+    }
     if (activeCountdownTimer) {
       clearInterval(activeCountdownTimer);
       activeCountdownTimer = null;
@@ -668,6 +739,8 @@
     updateDraft: updateDraft,
     setStatus: setStatus,
     setBusy: setBusy,
+    setOrbState: setOrbState,
+    getOrb: () => overlayOrb,
     countWords: countWords,
     formatTime: formatTime,
     showCountdown: showCountdown,

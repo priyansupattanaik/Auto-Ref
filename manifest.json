@@ -45,6 +45,7 @@
     {
       "matches": ["https://www.linkedin.com/*"],
       "js": [
+        "lib/thinking-orb.js",
         "lib/delay.js",
         "lib/storage.js",
         "lib/template.js",

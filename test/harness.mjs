@@ -124,7 +124,7 @@ globalThis.chrome = {
 };
 
 mem.settings = { mockMode: true }; // mirror real mock-E2E config so boot() pins MOCK selectors
-for (const f of ['lib/delay.js', 'lib/storage.js', 'lib/template.js', 'lib/prompt.js',
+for (const f of ['lib/thinking-orb.js', 'lib/delay.js', 'lib/storage.js', 'lib/template.js', 'lib/prompt.js',
   'content/selectors.js', 'content/scrapers.js', 'content/history-check.js',
   'content/messenger.js', 'content/overlay-widget.js', 'content/main.js']) {
   eval(read(f)); // eslint-disable-line — loads into window.AutoRef
@@ -567,7 +567,75 @@ const PROF = { urn: 'u1', name: 'Ada Lovelace', role: 'SE', company: 'AE' };
   t(q[0].status === 'awaiting_review' && q[1].status === 'pending', 'queue order preserved without premature advancement');
 }
 
+// ---------- Thinking Orb (Libraries.dev) Component Tests ----------
+{
+  const TO = NS.ThinkingOrb || globalThis.ThinkingOrb;
+  t(typeof TO === 'function', 'ThinkingOrb class is exposed to AutoRef and global');
+
+  // Verify all 9 hand-tuned animated states
+  const expectedStates = [
+    'working', 'searching', 'solving', 'listening',
+    'connecting', 'weaving', 'composing', 'breathing', 'shaping'
+  ];
+  t(Array.isArray(TO.STATES) && TO.STATES.length === 9, 'ThinkingOrb.STATES contains 9 states');
+  for (const st of expectedStates) {
+    t(TO.STATES.includes(st), 'ThinkingOrb.STATES includes state: ' + st);
+    const p64 = TO.resolvePreset(st, 64);
+    const p20 = TO.resolvePreset(st, 20);
+    t(p64 && typeof p64.mode === 'string' && typeof p64.speed === 'number', 'resolvePreset 64 valid for ' + st);
+    t(p20 && typeof p20.mode === 'string' && typeof p20.speed === 'number', 'resolvePreset 20 valid for ' + st);
+  }
+
+  // Props testing: state, size, speed, dark, paused
+  const orb = new TO({
+    state: 'composing',
+    size: 64,
+    speed: 1.5,
+    dark: true,
+    paused: false,
+  });
+
+  t(orb.state === 'composing', 'ThinkingOrb prop state initialized correctly');
+  t(orb.size === 64, 'ThinkingOrb prop size initialized correctly');
+  t(orb.speed === 1.5, 'ThinkingOrb prop speed initialized correctly');
+  t(orb.dark === true, 'ThinkingOrb prop dark initialized correctly');
+  t(orb.paused === false, 'ThinkingOrb prop paused initialized correctly');
+  t(!!orb.element, 'ThinkingOrb creates DOM element');
+
+  // Methods testing
+  orb.setState('searching');
+  t(orb.state === 'searching', 'setState updates state');
+  orb.setSize(20);
+  t(orb.size === 20, 'setSize updates size');
+  orb.setSpeed(2);
+  t(orb.speed === 2, 'setSpeed updates speed');
+  orb.setDark(false);
+  t(orb.dark === false, 'setDark updates dark');
+  orb.setPaused(true);
+  t(orb.paused === true, 'setPaused updates paused');
+
+  orb.update({ state: 'connecting', size: 64, speed: 1, dark: true, paused: false });
+  t(orb.state === 'connecting' && orb.size === 64 && orb.speed === 1, 'update batch updates props');
+
+  // Static mount & create helper
+  const container = document.createElement('div');
+  const mountedOrb = TO.mount(container, { state: 'weaving', size: 20 });
+  t(mountedOrb instanceof TO, 'mount returns ThinkingOrb instance');
+  t(container.children.length === 1, 'mount appends element to container');
+
+  // Overlay integration
+  t(typeof NS.Overlay.setOrbState === 'function', 'NS.Overlay has setOrbState method');
+  NS.Overlay.setOrbState('composing');
+
+  // Clean destruction
+  orb.destroy();
+  t(orb.destroyed === true, 'ThinkingOrb destroyed cleanly');
+  mountedOrb.destroy();
+  t(mountedOrb.destroyed === true, 'Mounted orb destroyed cleanly');
+}
+
 console.log('\nPASS: ' + pass + ' FAIL: ' + fail);
 if (FAILS.length) { console.log('Failures listed above.'); process.exit(1); }
 setTimeout(() => process.exit(0), 50).unref?.();
 process.exit(0);
+

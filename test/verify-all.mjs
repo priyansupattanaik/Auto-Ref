@@ -11,6 +11,7 @@ const files = [
   'server.js',
   'background/ai-client.js',
   'background/service-worker.js',
+  'lib/thinking-orb.js',
   'lib/delay.js',
   'lib/prompt.js',
   'lib/storage.js',

@@ -54,13 +54,29 @@
     }
   }
 
+  let envOrb = null;
+  let testAiOrb = null;
+  let showcaseOrb = null;
+
   async function checkServerSync() {
     const envStatus = document.getElementById('env-status');
+    const envOrbSlot = document.getElementById('env-orb');
+
+    if (envOrbSlot && typeof ThinkingOrb !== 'undefined') {
+      envOrbSlot.classList.remove('hidden');
+      if (!envOrb) {
+        envOrb = ThinkingOrb.mount(envOrbSlot, { state: 'connecting', size: 20 });
+      } else {
+        envOrb.update({ state: 'connecting', size: 20, paused: false });
+      }
+    }
+
     try {
       const resp = await fetch('http://127.0.0.1:8787/api/config');
       if (resp.ok) {
         const conf = await resp.json();
         if (conf && conf.ok) {
+          if (envOrbSlot) envOrbSlot.classList.add('hidden');
           if (envStatus) {
             envStatus.textContent = '🟢 Server connected on port ' + conf.port +
               ' — API Key from .env: ' + (conf.hasApiKey ? 'Loaded' : 'Not set in .env') +
@@ -78,15 +94,17 @@
           if (!document.getElementById('model').value && conf.model) {
             document.getElementById('model').value = conf.model;
           }
+          return;
         }
       }
-    } catch (_) {
-      if (envStatus) {
-        envStatus.textContent = '⚠️ Local server offline. Run "start-server.bat" to load API key from .env.';
-        envStatus.style.borderColor = '#ffcc80';
-        envStatus.style.background = '#fff3e0';
-        envStatus.style.color = '#e65100';
-      }
+    } catch (_) {}
+
+    if (envOrbSlot) envOrbSlot.classList.add('hidden');
+    if (envStatus) {
+      envStatus.textContent = '⚠️ Local server offline. Run "start-server.bat" to load API key from .env.';
+      envStatus.style.borderColor = '#ffcc80';
+      envStatus.style.background = '#fff3e0';
+      envStatus.style.color = '#e65100';
     }
   }
 
@@ -177,7 +195,18 @@
 
   async function testAI() {
     const out = document.getElementById('test-ai-out');
-    out.textContent = 'Generating with model…';
+    const orbSlot = document.getElementById('test-ai-orb');
+
+    if (orbSlot && typeof ThinkingOrb !== 'undefined') {
+      orbSlot.classList.remove('hidden');
+      if (!testAiOrb) {
+        testAiOrb = ThinkingOrb.mount(orbSlot, { state: 'composing', size: 20 });
+      } else {
+        testAiOrb.update({ state: 'composing', size: 20, paused: false });
+      }
+    }
+
+    out.textContent = 'Generating AI referral draft with model…';
     try {
       const res = await chrome.runtime.sendMessage({
         type: 'AUTOREF_GENERATE',
@@ -196,11 +225,52 @@
       }
     } catch (e) {
       out.textContent = 'Error: ' + String((e && e.message) || e);
+    } finally {
+      if (orbSlot) orbSlot.classList.add('hidden');
+    }
+  }
+
+  function initShowcase() {
+    const previewContainer = document.getElementById('showcase-orb-preview');
+    if (!previewContainer || typeof ThinkingOrb === 'undefined') return;
+
+    const stateSelect = document.getElementById('orb-state-select');
+    const sizeSelect = document.getElementById('orb-size-select');
+    const speedSelect = document.getElementById('orb-speed-select');
+    const darkToggle = document.getElementById('orb-dark-toggle');
+    const pausedToggle = document.getElementById('orb-paused-toggle');
+
+    showcaseOrb = ThinkingOrb.mount(previewContainer, {
+      state: stateSelect ? stateSelect.value : 'composing',
+      size: sizeSelect ? Number(sizeSelect.value) : 64,
+      speed: speedSelect ? Number(speedSelect.value) : 1,
+      dark: darkToggle ? darkToggle.checked : false,
+      paused: pausedToggle ? pausedToggle.checked : false,
+    });
+
+    if (stateSelect) {
+      stateSelect.addEventListener('change', () => showcaseOrb.setState(stateSelect.value));
+    }
+    if (sizeSelect) {
+      sizeSelect.addEventListener('change', () => showcaseOrb.setSize(Number(sizeSelect.value)));
+    }
+    if (speedSelect) {
+      speedSelect.addEventListener('change', () => showcaseOrb.setSpeed(Number(speedSelect.value)));
+    }
+    if (darkToggle) {
+      darkToggle.addEventListener('change', () => {
+        showcaseOrb.setDark(darkToggle.checked);
+        previewContainer.classList.toggle('dark-preview', darkToggle.checked);
+      });
+    }
+    if (pausedToggle) {
+      pausedToggle.addEventListener('change', () => showcaseOrb.setPaused(pausedToggle.checked));
     }
   }
 
   document.addEventListener('DOMContentLoaded', () => {
     load().catch((e) => console.error('[AutoRef options]', e));
+    initShowcase();
     document.getElementById('opts').addEventListener('submit', save);
     document.getElementById('test-ai').addEventListener('click', testAI);
     document.getElementById('fallbackTemplate').addEventListener('input', renderPreview);

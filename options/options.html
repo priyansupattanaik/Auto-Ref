@@ -19,7 +19,10 @@
     <div id="dryrun-banner" class="banner hidden">DRY-RUN MODE is ON — no real messages will be sent.</div>
     <form id="opts">
       <fieldset><legend>AI</legend>
-        <div id="env-status" class="env-banner">API key &amp; Agent Model are loaded from <code>.env</code> via local server.</div>
+        <div class="env-status-wrapper">
+          <div id="env-orb" class="orb-container"></div>
+          <div id="env-status" class="env-banner">API key &amp; Agent Model are loaded from <code>.env</code> via local server.</div>
+        </div>
         <label>API Key (loaded from .env)
           <input type="text" id="apiKey" readonly class="readonly-key" placeholder="Configured in .env file" />
         </label>
@@ -36,6 +39,45 @@
         <label><input type="checkbox" id="aiMode" /> AI mode</label>
         <label><input type="checkbox" id="mockAI" /> Mock AI (tests)</label>
         <label>Temperature <input type="number" id="temperature" step="0.1" min="0" max="2" /></label>
+      </fieldset>
+      <fieldset><legend>Thinking Orb Showcase (Libraries.dev)</legend>
+        <div class="orb-showcase-desc">Nine hand-tuned animated states replacing spinners for AI thinking states with zero runtime dependencies.</div>
+        <div class="orb-preview-layout">
+          <div id="showcase-orb-preview" class="orb-preview-card"></div>
+          <div class="orb-controls">
+            <label>State:
+              <select id="orb-state-select">
+                <option value="working">working (orbits)</option>
+                <option value="searching">searching (globe)</option>
+                <option value="solving">solving (rubik)</option>
+                <option value="listening">listening (wave)</option>
+                <option value="connecting">connecting (web)</option>
+                <option value="weaving">weaving (braid)</option>
+                <option value="composing" selected>composing (ribbon)</option>
+                <option value="breathing">breathing (ring)</option>
+                <option value="shaping">shaping (morph)</option>
+              </select>
+            </label>
+            <label>Size:
+              <select id="orb-size-select">
+                <option value="64" selected>64 (Chat avatar scale)</option>
+                <option value="20">20 (Inline text scale)</option>
+              </select>
+            </label>
+            <label>Speed:
+              <select id="orb-speed-select">
+                <option value="0.5">0.5x</option>
+                <option value="1" selected>1.0x</option>
+                <option value="1.5">1.5x</option>
+                <option value="2">2.0x</option>
+              </select>
+            </label>
+            <div class="orb-toggle-row">
+              <label class="checkbox-inline"><input type="checkbox" id="orb-dark-toggle" /> Dark mode tuning</label>
+              <label class="checkbox-inline"><input type="checkbox" id="orb-paused-toggle" /> Paused</label>
+            </div>
+          </div>
+        </div>
       </fieldset>
       <fieldset><legend>Content</legend>
         <label>About me <textarea id="aboutMe"></textarea></label>
@@ -70,7 +112,10 @@
       <button type="submit">Save</button>
       <button type="button" id="test-ai">Test AI</button>
       <div id="test-ai-hint">Uses saved settings — press Save first. With Mock AI on, no key or network is needed.</div>
-      <div id="test-ai-out"></div>
+      <div id="test-ai-row" class="test-ai-row">
+        <div id="test-ai-orb" class="orb-container hidden"></div>
+        <div id="test-ai-out"></div>
+      </div>
       <fieldset><legend>Danger zone</legend>
         <button type="button" id="clear-queue">Clear queue</button>
         <button type="button" id="clear-sent">Clear sentLog</button>
@@ -79,6 +124,7 @@
       <div id="status"></div>
     </form>
   </main>
+  <script src="../lib/thinking-orb.js"></script>
   <script src="options.js"></script>
 </body>
 </html>

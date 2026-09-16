@@ -15,11 +15,15 @@
         <img src="../icons/icon32.png" alt="AutoRef Logo" class="brand-logo" />
         <h1>AutoRef</h1>
       </div>
-      <div id="run-status">Status: idle</div>
+      <div class="header-status">
+        <div id="header-orb" class="orb-container"></div>
+        <div id="run-status">Status: idle</div>
+      </div>
     </header>
 
     <section id="server-panel" class="server-card">
       <div class="server-header">
+        <div id="server-orb" class="orb-container"></div>
         <span id="server-dot" class="dot orange"></span>
         <span id="server-label">Server: Checking...</span>
         <button id="server-toggle-btn" type="button" class="btn-small hidden">Start</button>
@@ -35,7 +39,10 @@
       <div>Sent today: <span id="c-sent-today">0</span> / <span id="c-cap">15</span></div>
       <div>Skipped: <span id="c-skipped">0</span> · Failed: <span id="c-failed">0</span></div>
       <div>AI: <span id="c-ai">0</span> · Fallback: <span id="c-fallback">0</span></div>
-      <div id="current-action">—</div>
+      <div class="action-row">
+        <div id="action-orb" class="orb-container"></div>
+        <div id="current-action">—</div>
+      </div>
     </section>
     <section id="review-section" class="hidden">
       <h2>Pending review</h2>
@@ -43,6 +50,7 @@
     </section>
     <footer><a href="#" id="open-options">Options</a></footer>
   </div>
+  <script src="../lib/thinking-orb.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>

@@ -7,6 +7,7 @@
   const DEFAULT_AGENT_MODEL = 'nvidia/llama-3.1-nemotron-70b-instruct';
 
   const CONTENT_FILES = [
+    'lib/thinking-orb.js',
     'lib/delay.js', 'lib/storage.js', 'lib/template.js', 'lib/prompt.js',
     'content/selectors.js', 'content/scrapers.js', 'content/history-check.js',
     'content/messenger.js', 'content/overlay-widget.js', 'content/main.js',
@@ -18,6 +19,11 @@
     model: DEFAULT_AGENT_MODEL,
     port: 8787,
   };
+  let isCheckingServer = false;
+
+  let headerOrb = null;
+  let serverOrb = null;
+  let actionOrb = null;
 
   function $(id) {
     return document.getElementById(id);
@@ -75,10 +81,30 @@
     const sub = $('server-sub');
     const btn = $('server-toggle-btn');
     const modelEl = $('active-model');
+    const serverOrbSlot = $('server-orb');
 
     if (modelEl) modelEl.textContent = serverStatus.model || DEFAULT_AGENT_MODEL;
 
     if (!dot || !label || !sub) return;
+
+    if (isCheckingServer) {
+      dot.classList.add('hidden');
+      if (serverOrbSlot) {
+        serverOrbSlot.classList.remove('hidden');
+        if (!serverOrb && typeof ThinkingOrb !== 'undefined') {
+          serverOrb = ThinkingOrb.mount(serverOrbSlot, { state: 'connecting', size: 20 });
+        } else if (serverOrb) {
+          serverOrb.update({ state: 'connecting', size: 20, paused: false });
+        }
+      }
+      label.textContent = 'Server: Connecting…';
+      sub.textContent = 'Checking local companion server on port ' + serverStatus.port;
+      if (btn) btn.classList.add('hidden');
+      return;
+    }
+
+    if (serverOrbSlot) serverOrbSlot.classList.add('hidden');
+    dot.classList.remove('hidden');
 
     dot.className = 'dot';
     if (serverStatus.running) {
@@ -121,6 +147,8 @@
   }
 
   async function checkServer(autoStart = false) {
+    isCheckingServer = true;
+    renderServerUI();
     try {
       const resp = await fetch('http://127.0.0.1:8787/api/health').catch(() => null);
       if (resp && resp.ok) {
@@ -129,6 +157,7 @@
         serverStatus.hasApiKey = !!data.hasApiKey;
         serverStatus.model = data.model || DEFAULT_AGENT_MODEL;
         serverStatus.port = data.port || 8787;
+        isCheckingServer = false;
         renderServerUI();
         await fetchAndSyncConfig();
         return true;
@@ -152,6 +181,7 @@
             serverStatus.hasApiKey = !!data.hasApiKey;
             serverStatus.model = data.model || DEFAULT_AGENT_MODEL;
             serverStatus.port = data.port || 8787;
+            isCheckingServer = false;
             renderServerUI();
             await fetchAndSyncConfig();
             return true;
@@ -161,6 +191,7 @@
     }
 
     serverStatus.running = false;
+    isCheckingServer = false;
     renderServerUI();
     return false;
   }
@@ -184,6 +215,44 @@
         (s.runState.currentUrn ? ' · ' + s.runState.currentUrn : '') +
         (lr ? ' · ' + lr : '');
       $('hint').textContent = hintFor(s, tabUrl);
+
+      // Manage thinking orbs for AI generation ("composing"), connection search ("searching"), server connecting ("connecting")
+      const headerOrbSlot = $('header-orb');
+      const actionOrbSlot = $('action-orb');
+      let targetState = 'breathing';
+
+      if (s.runState.running) {
+        if (s.runState.phase === 'scrape_queue' || s.runState.phase === 'searching') {
+          targetState = 'searching';
+        } else if (s.runState.phase === 'compose' || s.runState.phase === 'generating' || s.runState.phase === 'ai') {
+          targetState = 'composing';
+        } else {
+          targetState = 'working';
+        }
+      } else {
+        targetState = 'breathing';
+      }
+
+      if (headerOrbSlot && typeof ThinkingOrb !== 'undefined') {
+        if (!headerOrb) {
+          headerOrb = ThinkingOrb.mount(headerOrbSlot, { state: targetState, size: 20 });
+        } else {
+          headerOrb.update({ state: targetState, size: 20 });
+        }
+      }
+
+      if (actionOrbSlot && typeof ThinkingOrb !== 'undefined') {
+        if (s.runState.running) {
+          actionOrbSlot.classList.remove('hidden');
+          if (!actionOrb) {
+            actionOrb = ThinkingOrb.mount(actionOrbSlot, { state: targetState, size: 20 });
+          } else {
+            actionOrb.update({ state: targetState, size: 20 });
+          }
+        } else {
+          actionOrbSlot.classList.add('hidden');
+        }
+      }
 
       const awaiting = s.queue.filter((q) => q.status === 'awaiting_review');
       $('review-section').classList.toggle('hidden', awaiting.length === 0);
