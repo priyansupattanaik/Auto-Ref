@@ -391,8 +391,12 @@
     return m > 0 ? m + ':' + String(rem).padStart(2, '0') : rem + 's';
   }
 
+  let hasBeenDragged = false;
+
   function positionAboveCompose(card) {
-    if (!card || typeof card.getBoundingClientRect !== 'function') return;
+    if (!card || hasBeenDragged || typeof card.getBoundingClientRect !== 'function') return;
+    card.style.left = 'auto';
+    card.style.top = 'auto';
     try {
       const compose = NS.findComposeBox ? NS.findComposeBox() : null;
       if (compose && typeof compose.getBoundingClientRect === 'function') {
@@ -435,9 +439,11 @@
 
     const onMouseDown = (e) => {
       if (!e) return;
+      if (e.button !== undefined && e.button !== 0) return;
       if (e.target && (e.target.tagName === 'BUTTON' || e.target.tagName === 'TEXTAREA' || (e.target.closest && e.target.closest('button')))) {
         return;
       }
+      if (typeof e.preventDefault === 'function') e.preventDefault();
       isDragging = true;
       startX = e.clientX || 0;
       startY = e.clientY || 0;
@@ -454,6 +460,7 @@
 
     const onMouseMove = (e) => {
       if (!isDragging || !e) return;
+      hasBeenDragged = true;
       const dx = (e.clientX || 0) - startX;
       const dy = (e.clientY || 0) - startY;
 
@@ -723,7 +730,16 @@
   function setBusy(isBusy, message) {
     const card = currentCard || document.getElementById(WIDGET_ID);
     if (!card) return;
-    const btns = card.querySelectorAll('button, textarea');
+    let btns = [];
+    try {
+      btns = Array.from(card.querySelectorAll('button, textarea'));
+    } catch (_) {
+      try {
+        btns = (card.querySelectorAll('button') || []).concat(card.querySelectorAll('textarea') || []);
+      } catch (_) {}
+    }
+    const ta = document.getElementById('autoref-draft-input');
+    if (ta) ta.disabled = !!isBusy;
     btns.forEach((b) => (b.disabled = !!isBusy));
     if (message) setStatus(message);
     if (overlayOrb) {
@@ -782,10 +798,15 @@
 
     section.style.display = 'flex';
     let remaining = Math.max(0, Math.round(durationSec));
+    const prevStatus = (document.getElementById('autoref-status-text') || {}).textContent || '';
 
     const update = () => {
       const tmpl = labelTemplate || '⏱️ Next profile in {time}';
-      textEl.textContent = tmpl.replace('{time}', formatTime(remaining));
+      const formatted = tmpl.replace('{time}', formatTime(remaining));
+      textEl.textContent = formatted;
+      if (isMinimized) {
+        setStatus(formatted);
+      }
     };
     update();
 
@@ -794,6 +815,9 @@
     const finish = () => {
       if (finished) return;
       finished = true;
+      if (isMinimized && prevStatus) {
+        setStatus(prevStatus);
+      }
       if (overlayOrb) {
         overlayOrb.update({ state: 'breathing', paused: false, dark: true });
       }
@@ -852,6 +876,7 @@
     if (card && card.parentNode) card.parentNode.removeChild(card);
     currentCard = null;
     isMinimized = false;
+    hasBeenDragged = false;
   }
 
   function isVisible() {

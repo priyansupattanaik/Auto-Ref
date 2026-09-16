@@ -72,7 +72,7 @@
 
         <button type="button" class="nav-item" data-target="sec-safety">
           <div class="nav-icon-wrap green">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg>
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" x2="4" y1="21" y2="14"/><line x1="4" x2="4" y1="10" y2="3"/><line x1="12" x2="12" y1="21" y2="12"/><line x1="12" x2="12" y1="8" y2="3"/><line x1="20" x2="20" y1="21" y2="16"/><line x1="20" x2="20" y1="12" y2="3"/><line x1="1" x2="7" y1="14" y2="14"/><line x1="9" x2="15" y1="8" y2="8"/><line x1="17" x2="23" y1="16" y2="16"/></svg>
           </div>
           <span>Safety &amp; Pacing</span>
         </button>
@@ -419,17 +419,26 @@
                 </div>
               </div>
 
-              <!-- Blacklist -->
+              <!-- Blacklist Profiles Chip Input Manager -->
               <div class="card-row vertical-stack">
-                <label for="blacklistProfiles" class="row-label">Blacklist Profiles</label>
-                <span class="row-sub">Comma-separated profile URNs, vanity URLs, or full names.</span>
-                <input type="text" id="blacklistProfiles" class="glass-input" placeholder="urn:li:fsd_profile:ACoAA..., jane-doe" />
+                <label for="input-blacklistProfiles" class="row-label">Blacklist Profiles</label>
+                <span class="row-sub">Profile URNs, vanity URLs, or names to skip automatically. Type and press Enter to add.</span>
+                <div class="chip-input-manager" id="manager-blacklistProfiles">
+                  <div class="chips-list" id="chips-blacklistProfiles"></div>
+                  <input type="text" id="input-blacklistProfiles" class="chip-inline-input" placeholder="Type URN/name and press Enter…" />
+                </div>
+                <input type="hidden" id="blacklistProfiles" />
               </div>
 
+              <!-- Blacklist Companies Chip Input Manager -->
               <div class="card-row vertical-stack">
-                <label for="blacklistCompanies" class="row-label">Blacklist Companies</label>
-                <span class="row-sub">Comma-separated company names to skip automatically.</span>
-                <input type="text" id="blacklistCompanies" class="glass-input" placeholder="Acme Corp, Competitor Inc" />
+                <label for="input-blacklistCompanies" class="row-label">Blacklist Companies</label>
+                <span class="row-sub">Company names to skip automatically. Type and press Enter to add.</span>
+                <div class="chip-input-manager" id="manager-blacklistCompanies">
+                  <div class="chips-list" id="chips-blacklistCompanies"></div>
+                  <input type="text" id="input-blacklistCompanies" class="chip-inline-input" placeholder="Type company and press Enter…" />
+                </div>
+                <input type="hidden" id="blacklistCompanies" />
               </div>
 
               <!-- Mock Mode -->
@@ -487,7 +496,7 @@
                     <span>Removes all discovered candidates awaiting send or review.</span>
                   </div>
                   <button type="button" id="clear-queue" class="btn-danger-pill">
-                    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
                     <span>Clear Queue</span>
                   </button>
                 </div>
@@ -498,7 +507,7 @@
                     <span>Clears local log of contacts sent to prevent re-contacting.</span>
                   </div>
                   <button type="button" id="clear-sent" class="btn-danger-pill">
-                    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
                     <span>Clear SentLog</span>
                   </button>
                 </div>
@@ -509,7 +518,7 @@
                     <span>Clears cached drafts for model regeneration.</span>
                   </div>
                   <button type="button" id="clear-cache" class="btn-danger-pill">
-                    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
                     <span>Clear Cache</span>
                   </button>
                 </div>
@@ -531,6 +540,25 @@
           </div>
         </form>
       </main>
+    </div>
+  </div>
+
+  <!-- macOS Frosted Glass Confirmation Modal for Danger Zone -->
+  <div id="danger-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-icon-bubble">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        </div>
+        <div class="modal-text">
+          <h3 id="modal-title">Confirm Danger Zone Action</h3>
+          <p id="modal-desc">This action cannot be undone.</p>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" id="modal-cancel" class="btn-glass-pill modal-btn">Cancel</button>
+        <button type="button" id="modal-confirm" class="btn-danger-pill modal-btn modal-btn-destructive">Clear Permanently</button>
+      </div>
     </div>
   </div>
 

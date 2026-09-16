@@ -475,7 +475,7 @@
           const ap = document.createElement('button');
           ap.type = 'button';
           ap.className = 'btn-review-action btn-approve';
-          ap.innerHTML = `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg><span>Approve</span>`;
+          ap.innerHTML = `<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg><span>Approve &amp; Send</span>`;
           ap.addEventListener('click', () => review(item.urn, 'approve', textarea.value));
 
           const rg = document.createElement('button');
@@ -511,10 +511,11 @@
   async function notifyTab(payload) {
     try {
       const t = await activeTab();
-      if (t && t.id != null) await chrome.tabs.sendMessage(t.id, payload);
+      if (t && t.id != null) return await chrome.tabs.sendMessage(t.id, payload);
     } catch (e) {
       /* tab may not have the content script — storage poller covers it */
     }
+    return null;
   }
 
   async function toggleRun() {
@@ -541,23 +542,32 @@
   async function review(urn, action, customText) {
     const s = await read();
     if (action === 'regenerate') {
-      // Clear cache key to force fresh generation
       const key = urn + '::' + s.settings.model + '::v1';
       const cache = Object.assign({}, s.msgCache);
       delete cache[key];
       await chrome.storage.local.set({ msgCache: cache });
-      await notifyTab({ type: 'AUTOREF_CMD', cmd: { cmd: 'regenerate', urn: urn } });
+      // Ask content script to regenerate if attached
+      const notified = await notifyTab({ type: 'AUTOREF_CMD', cmd: { cmd: 'regenerate', urn: urn } });
+      if (!notified || !notified.ok) {
+        // Fallback: call background generate directly
+        const item = s.queue.find((q) => q && q.urn === urn);
+        if (item) {
+          try {
+            const genRes = await chrome.runtime.sendMessage({
+              type: 'AUTOREF_GENERATE',
+              profile: item,
+            });
+            if (genRes && genRes.message) {
+              const fresh = (await chrome.storage.local.get(['msgCache'])).msgCache || {};
+              fresh[key] = { message: genRes.message, source: genRes.source || 'ai', ts: Date.now() };
+              await chrome.storage.local.set({ msgCache: fresh });
+            }
+          } catch (_) {}
+        }
+      }
       const t = await activeTab();
       render(t && t.url);
       return;
-    }
-
-    if (action === 'approve' && customText) {
-      // Save edited draft into msgCache
-      const key = urn + '::' + s.settings.model + '::v1';
-      const cache = Object.assign({}, s.msgCache);
-      cache[key] = { message: customText, source: 'user_edited', ts: Date.now() };
-      await chrome.storage.local.set({ msgCache: cache });
     }
 
     const next = s.queue.map((q) => {
@@ -566,13 +576,26 @@
       return Object.assign({}, q, { status: 'pending', reason: 'approved by user', approved: true });
     });
     const patch = { queue: next };
-    if (action === 'skip') {
+
+    if (action === 'approve') {
+      if (customText) {
+        const key = urn + '::' + s.settings.model + '::v1';
+        const cache = Object.assign({}, s.msgCache);
+        cache[key] = { message: customText, source: 'user_edited', ts: Date.now() };
+        patch.msgCache = cache;
+      }
+      if (!s.runState.running || s.runState.phase === 'awaiting_review') {
+        patch.runState = { running: true, phase: 'next', currentUrn: null, startedAt: new Date().toISOString() };
+      }
+    } else if (action === 'skip') {
       patch.stats = Object.assign({}, s.stats, { skipped: (s.stats.skipped || 0) + 1 });
-    } else if (!s.runState.running) {
-      patch.runState = { running: true, phase: 'next', currentUrn: null, startedAt: new Date().toISOString() };
+      if (s.runState.phase === 'awaiting_review') {
+        patch.runState = { running: true, phase: 'next', currentUrn: null, startedAt: new Date().toISOString() };
+      }
     }
+
     await chrome.storage.local.set(patch);
-    await notifyTab({ type: 'AUTOREF_CMD', cmd: { cmd: action, urn: urn } });
+    await notifyTab({ type: 'AUTOREF_CMD', cmd: { cmd: action, urn: urn, customText: customText } });
     const t = await activeTab();
     render(t && t.url);
   }
@@ -601,7 +624,11 @@
   }
 
   function openOptions() {
-    chrome.runtime.openOptionsPage();
+    if (typeof chrome !== 'undefined' && chrome.runtime && typeof chrome.runtime.openOptionsPage === 'function') {
+      chrome.runtime.openOptionsPage();
+    } else if (typeof chrome !== 'undefined' && chrome.runtime && typeof chrome.runtime.getURL === 'function') {
+      window.open(chrome.runtime.getURL('options/options.html'));
+    }
   }
 
   document.addEventListener('DOMContentLoaded', async () => {
@@ -629,5 +656,23 @@
     $('attach')?.addEventListener('click', attach);
     $('server-toggle-btn')?.addEventListener('click', () => checkServer(true));
     $('theme-toggle')?.addEventListener('click', toggleTheme);
+
+    // Synchronize theme across extension contexts in real-time
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged) {
+      chrome.storage.onChanged.addListener((changes) => {
+        if (changes.theme && changes.theme.newValue) {
+          applyTheme(changes.theme.newValue);
+        }
+      });
+    }
+
+    if (typeof window !== 'undefined' && window.matchMedia) {
+      window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', async (e) => {
+        const d = await chrome.storage.local.get(['theme']);
+        if (!d || !d.theme) {
+          applyTheme(e.matches ? 'light' : 'dark');
+        }
+      });
+    }
   });
 })();

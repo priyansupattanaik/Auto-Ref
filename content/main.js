@@ -565,6 +565,21 @@
       drive();
       return { ok: true };
     }
+    if (c.cmd === 'regenerate' && c.urn) {
+      const queue = await NS.getQueue();
+      const item = queue.find((q) => q && q.urn === c.urn);
+      if (!item) return { ok: false, error: 'item not found in queue' };
+      const s = await NS.getAll();
+      const cache = (await NS.getMsgCache()) || {};
+      delete cache[msgCacheKey(c.urn, s.settings.model)];
+      await NS.setMsgCache(cache);
+      const fresh = await generateFor(item, s.settings);
+      await parkDraft(c.urn, s.settings.model, fresh.message, fresh.source);
+      if (NS.Overlay && NS.Overlay.updateDraft) {
+        NS.Overlay.updateDraft(fresh.message);
+      }
+      return { ok: true, message: fresh.message };
+    }
     if ((c.cmd === 'approve' || c.cmd === 'skip') && c.urn) {
       const queue = await NS.getQueue();
       if (c.cmd === 'skip') {
@@ -572,12 +587,23 @@
         const stats = await NS.getStats();
         stats.skipped = (stats.skipped || 0) + 1;
         await NS.setStats(stats);
+        if (NS.Overlay && NS.Overlay.remove) NS.Overlay.remove();
+        const cur = await NS.getRunState();
+        if (!cur.running || cur.phase === 'awaiting_review') {
+          await NS.setRunState({ running: true, phase: 'next', startedAt: new Date().toISOString(), currentUrn: null });
+          drive();
+        }
       } else {
         // Approve: back to pending with approved flag. The generated draft is served from msgCache
         // (cache hit), so approval never regenerates or duplicates.
+        if (c.customText) {
+          const s = await NS.getAll();
+          await parkDraft(c.urn, s.settings.model, c.customText, 'user_edited');
+        }
         await NS.setQueue(updateItem(queue, c.urn, { status: 'pending', reason: 'approved by user', approved: true }));
+        if (NS.Overlay && NS.Overlay.remove) NS.Overlay.remove();
         const cur = await NS.getRunState();
-        if (!cur.running) {
+        if (!cur.running || cur.phase === 'awaiting_review') {
           await NS.setRunState({ running: true, phase: 'next', startedAt: new Date().toISOString(), currentUrn: null });
           drive();
         }

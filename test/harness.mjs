@@ -120,7 +120,15 @@ globalThis.chrome = {
       },
     },
   },
-  runtime: { lastError: undefined, onMessage: { addListener() {} }, sendMessage() {} },
+  runtime: {
+    lastError: undefined,
+    onMessage: { addListener() {} },
+    sendMessage(msg, cb) {
+      if (typeof cb === 'function') {
+        setTimeout(() => cb({ ok: true, message: 'Mock AI draft for ' + ((msg && msg.profile && msg.profile.name) || 'test'), source: 'ai' }), 0);
+      }
+    },
+  },
 };
 
 mem.settings = { mockMode: true }; // mirror real mock-E2E config so boot() pins MOCK selectors
@@ -651,6 +659,74 @@ const PROF = { urn: 'u1', name: 'Ada Lovelace', role: 'SE', company: 'AE' };
   t(orb.destroyed === true, 'ThinkingOrb destroyed cleanly');
   mountedOrb.destroy();
   t(mountedOrb.destroyed === true, 'Mounted orb destroyed cleanly');
+}
+
+// ---------- In-page Overlay Widget & Review Queue Command Verification ----------
+{
+  // 1. In-page Overlay rendering & draft management
+  t(typeof NS.Overlay.render === 'function', 'NS.Overlay has render method');
+  t(typeof NS.Overlay.remove === 'function', 'NS.Overlay has remove method');
+  t(typeof NS.Overlay.isVisible === 'function', 'NS.Overlay has isVisible method');
+
+  const card = NS.Overlay.render({
+    profile: { urn: 'urn:li:mock-test', name: 'Alice Smith', role: 'Architect', company: 'CloudCo' },
+    draft: 'Hello Alice, love your work at CloudCo.',
+    status: 'Awaiting Review',
+  });
+  t(card !== null, 'NS.Overlay.render returns card element');
+  t(NS.Overlay.isVisible() === true, 'NS.Overlay.isVisible reports true when mounted');
+  eq(NS.Overlay.getDraftText(), 'Hello Alice, love your work at CloudCo.', 'getDraftText returns initial draft');
+
+  NS.Overlay.updateDraft('Updated referral draft for Alice.');
+  eq(NS.Overlay.getDraftText(), 'Updated referral draft for Alice.', 'updateDraft updates draft textarea value');
+
+  eq(NS.Overlay.countWords('One two three four five'), 5, 'countWords calculates word count accurately');
+  eq(NS.Overlay.formatTime(95), '1:35', 'formatTime formats minutes and seconds');
+  eq(NS.Overlay.formatTime(25), '25s', 'formatTime formats seconds under 1 minute');
+
+  NS.Overlay.setBusy(true, 'Approving & Sending...');
+  t(document.getElementById('autoref-status-text')?.textContent === 'Approving & Sending...', 'setBusy updates status message');
+
+  NS.Overlay.remove();
+  t(NS.Overlay.isVisible() === false, 'NS.Overlay.remove cleanly unmounts overlay');
+
+  // 2. Emergency alert modal creation and dismissal
+  t(typeof NS.Overlay.showEmergencyAlert === 'function', 'NS.Overlay has showEmergencyAlert method');
+  let dismissed = false;
+  const em = NS.Overlay.showEmergencyAlert('security checkpoint', () => { dismissed = true; });
+  t(em !== null, 'showEmergencyAlert returns alert element');
+  t(document.getElementById('autoref-emergency-halt') !== null, 'Emergency halt modal mounted to document');
+  const emBtn = em.querySelector('.autoref-em-btn');
+  if (emBtn) emBtn.click();
+  t(dismissed === true, 'Acknowledge button invokes dismissal callback');
+  t(document.getElementById('autoref-emergency-halt') === null, 'Emergency halt modal removed after dismiss');
+
+  // 3. Command Handling for Review Queue: regenerate, approve with custom text, and phase resumption
+  await NS.setQueue([
+    { urn: 'urn:li:rev-1', name: 'Review Candidate 1', role: 'Dev', company: 'DevCo', status: 'awaiting_review' },
+  ]);
+  await NS.setRunState({ running: true, phase: 'awaiting_review', currentUrn: 'urn:li:rev-1' });
+
+  // Test regenerate command
+  const regenRes = await NS.handleCommand({ cmd: 'regenerate', urn: 'urn:li:rev-1' });
+  t(regenRes.ok === true, 'handleCommand supports regenerate command');
+  t(typeof regenRes.message === 'string' && regenRes.message.length > 0, 'regenerate generates non-empty message');
+
+  // Test approve command with customText and phase resumption from awaiting_review
+  const approveRes = await NS.handleCommand({
+    cmd: 'approve',
+    urn: 'urn:li:rev-1',
+    customText: 'Personalized approved draft message for Review Candidate 1.',
+  });
+  t(approveRes.ok === true, 'handleCommand supports approve command with customText');
+  const updatedQueue = await NS.getQueue();
+  const qItem = updatedQueue.find((q) => q.urn === 'urn:li:rev-1');
+  t(qItem && qItem.status === 'pending' && qItem.approved === true, 'Approve sets item status to pending and approved=true');
+  const cache = await NS.getMsgCache();
+  const cachedDraft = cache['urn:li:rev-1::nvidia/llama-3.1-nemotron-70b-instruct::v1'];
+  t(cachedDraft && cachedDraft.message === 'Personalized approved draft message for Review Candidate 1.', 'Approve saves customText to msgCache with user_edited source');
+  const afterRun = await NS.getRunState();
+  t(afterRun.phase === 'next' && afterRun.running === true, 'Approve transitions awaiting_review phase to next');
 }
 
 console.log('\nPASS: ' + pass + ' FAIL: ' + fail);

@@ -190,6 +190,110 @@
     }
   }
 
+  // Chip Input Manager for Blacklists
+  const chipStore = {
+    blacklistProfiles: [],
+    blacklistCompanies: [],
+  };
+
+  function renderChips(id) {
+    const listEl = $('chips-' + id);
+    const hiddenEl = $(id);
+    if (!listEl) return;
+    listEl.innerHTML = '';
+    const arr = chipStore[id] || [];
+    arr.forEach((item, idx) => {
+      const chip = document.createElement('span');
+      chip.className = 'mgr-chip';
+      chip.textContent = item;
+
+      const delBtn = document.createElement('button');
+      delBtn.type = 'button';
+      delBtn.className = 'mgr-chip-del';
+      delBtn.innerHTML = '&times;';
+      delBtn.title = 'Remove ' + item;
+      delBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        arr.splice(idx, 1);
+        renderChips(id);
+      });
+
+      chip.appendChild(delBtn);
+      listEl.appendChild(chip);
+    });
+    if (hiddenEl) hiddenEl.value = arrToCsv(arr);
+  }
+
+  function initChipManager(id) {
+    const inputEl = $('input-' + id);
+    const managerEl = $('manager-' + id);
+    if (!inputEl) return;
+
+    const addItem = () => {
+      const raw = inputEl.value.trim().replace(/^,+|,+$/g, '');
+      if (raw) {
+        const parts = csvToArr(raw);
+        parts.forEach((p) => {
+          if (!chipStore[id].includes(p)) chipStore[id].push(p);
+        });
+        inputEl.value = '';
+        renderChips(id);
+      }
+    };
+
+    inputEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ',') {
+        e.preventDefault();
+        addItem();
+      } else if (e.key === 'Backspace' && !inputEl.value && chipStore[id].length > 0) {
+        chipStore[id].pop();
+        renderChips(id);
+      }
+    });
+
+    inputEl.addEventListener('blur', addItem);
+
+    if (managerEl) {
+      managerEl.addEventListener('click', () => inputEl.focus());
+    }
+  }
+
+  function initChipManagers() {
+    initChipManager('blacklistProfiles');
+    initChipManager('blacklistCompanies');
+  }
+
+  // macOS Confirmation Modal for Danger Zone Actions
+  let modalResolver = null;
+
+  function showConfirmModal(title, desc) {
+    const modal = $('danger-modal');
+    const titleEl = $('modal-title');
+    const descEl = $('modal-desc');
+
+    if (!modal || !titleEl || !descEl) {
+      return Promise.resolve(confirm(title + '\n\n' + desc));
+    }
+
+    titleEl.textContent = title;
+    descEl.textContent = desc;
+    modal.classList.remove('hidden');
+
+    return new Promise((resolve) => {
+      modalResolver = resolve;
+    });
+  }
+
+  function closeModal(result) {
+    const modal = $('danger-modal');
+    if (modal) modal.classList.add('hidden');
+    if (typeof modalResolver === 'function') {
+      const fn = modalResolver;
+      modalResolver = null;
+      fn(result);
+    }
+  }
+
   function renderPreview() {
     try {
       const tpl = $('fallbackTemplate')?.value;
@@ -285,6 +389,10 @@
     $('workHoursEnd').value = s.workHoursEnd;
     $('blacklistProfiles').value = arrToCsv(s.blacklistProfiles);
     $('blacklistCompanies').value = arrToCsv(s.blacklistCompanies);
+    chipStore.blacklistProfiles = Array.isArray(s.blacklistProfiles) ? s.blacklistProfiles.slice() : [];
+    chipStore.blacklistCompanies = Array.isArray(s.blacklistCompanies) ? s.blacklistCompanies.slice() : [];
+    renderChips('blacklistProfiles');
+    renderChips('blacklistCompanies');
     $('mockMode').checked = !!s.mockMode;
 
     $('dryrun-banner').classList.toggle('hidden', !s.dryRun);
@@ -308,7 +416,10 @@
     const dryRun = $('dryRun').checked;
 
     if (wasDryRun && !dryRun) {
-      const ok = confirm('Disable Dry-Run Mode? AutoRef will be able to send real LinkedIn messages to your connections.');
+      const ok = await showConfirmModal(
+        'Disable Dry-Run Mode?',
+        'AutoRef will be able to send real LinkedIn messages to your connections. Are you sure you want to proceed?',
+      );
       if (!ok) {
         $('dryRun').checked = true;
         return;
@@ -343,8 +454,12 @@
       workHoursEnd: $('workHoursEnd').value.trim() !== '' && Number.isFinite(Number($('workHoursEnd').value))
         ? Number($('workHoursEnd').value)
         : DEFAULTS.workHoursEnd,
-      blacklistProfiles: csvToArr($('blacklistProfiles').value),
-      blacklistCompanies: csvToArr($('blacklistCompanies').value),
+      blacklistProfiles: chipStore.blacklistProfiles && chipStore.blacklistProfiles.length
+        ? chipStore.blacklistProfiles.slice()
+        : csvToArr($('blacklistProfiles')?.value),
+      blacklistCompanies: chipStore.blacklistCompanies && chipStore.blacklistCompanies.length
+        ? chipStore.blacklistCompanies.slice()
+        : csvToArr($('blacklistCompanies')?.value),
       mockMode: $('mockMode').checked,
     };
 
@@ -447,6 +562,17 @@
     initVariableChips();
     initSliderBadges();
     initShowcase();
+    initChipManagers();
+
+    // Modal action handlers
+    $('modal-cancel')?.addEventListener('click', () => closeModal(false));
+    $('modal-confirm')?.addEventListener('click', () => closeModal(true));
+    $('danger-modal')?.addEventListener('click', (e) => {
+      if (e.target === $('danger-modal')) closeModal(false);
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeModal(false);
+    });
 
     load().catch((e) => console.error('[AutoRef options]', e));
 
@@ -456,8 +582,30 @@
     $('customNote')?.addEventListener('input', renderPreview);
     $('theme-toggle')?.addEventListener('click', toggleTheme);
 
+    // Synchronize theme across extension contexts in real-time
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged) {
+      chrome.storage.onChanged.addListener((changes) => {
+        if (changes.theme && changes.theme.newValue) {
+          applyTheme(changes.theme.newValue);
+        }
+      });
+    }
+
+    if (typeof window !== 'undefined' && window.matchMedia) {
+      window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', async (e) => {
+        const d = await chrome.storage.local.get(['theme']);
+        if (!d || !d.theme) {
+          applyTheme(e.matches ? 'light' : 'dark');
+        }
+      });
+    }
+
     const confirmClear = (label, key) => async () => {
-      if (!confirm('Are you sure you want to clear ' + label + '? This action cannot be undone.')) return;
+      const ok = await showConfirmModal(
+        'Clear ' + label + '?',
+        'Are you sure you want to permanently clear ' + label + '? This action cannot be undone.',
+      );
+      if (!ok) return;
       const patch = {};
       if (key === 'queue') patch.queue = [];
       if (key === 'sentLog') patch.sentLog = {};
@@ -466,7 +614,11 @@
       const statusEl = $('status');
       if (statusEl) {
         statusEl.textContent = 'Cleared ' + label + '.';
-        setTimeout(() => { statusEl.textContent = 'Ready'; }, 3000);
+        statusEl.style.color = 'var(--accent-red)';
+        setTimeout(() => {
+          statusEl.textContent = 'Ready';
+          statusEl.style.color = '';
+        }, 3000);
       }
     };
 

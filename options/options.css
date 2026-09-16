@@ -12,7 +12,7 @@
   --bg-hover: rgba(0, 0, 0, 0.04);
   --bg-active: rgba(0, 0, 0, 0.08);
   --bg-input: rgba(255, 255, 255, 0.95);
-  --border-specular: rgba(0, 0, 0, 0.09);
+  --border-specular: rgba(0, 0, 0, 0.08);
   --border-subtle: rgba(0, 0, 0, 0.05);
   --text-primary: #1d1d1f;
   --text-secondary: #6e6e73;
@@ -421,6 +421,16 @@ body {
   font-size: 13px;
   line-height: 1.45;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.glass-select {
+  -webkit-appearance: none;
+  appearance: none;
+  padding-right: 32px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2386868b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  cursor: pointer;
 }
 
 .glass-input:focus,
@@ -943,4 +953,181 @@ body {
   align-items: center;
   justify-content: center;
   line-height: 0;
+}
+
+/* Chip Input Manager (Blacklist Profiles / Companies) */
+.chip-input-manager {
+  width: 100%;
+  min-height: 42px;
+  padding: 6px 8px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-specular);
+  border-radius: var(--radius-sm);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.chip-input-manager:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+.chips-list {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.mgr-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  background: var(--bg-hover);
+  border: 1px solid var(--border-specular);
+  border-radius: var(--radius-pill);
+  font-size: 11.5px;
+  color: var(--text-primary);
+  line-height: 1.3;
+}
+
+.mgr-chip-del {
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  color: var(--text-tertiary);
+  font-size: 13px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 2px;
+  border-radius: 50%;
+  transition: color 0.15s ease;
+}
+
+.mgr-chip-del:hover {
+  color: var(--accent-red);
+}
+
+.chip-inline-input {
+  flex: 1;
+  min-width: 140px;
+  border: none;
+  background: transparent;
+  outline: none;
+  font-family: inherit;
+  font-size: 12.5px;
+  color: var(--text-primary);
+  padding: 4px 6px;
+}
+
+.chip-inline-input::placeholder {
+  color: var(--text-tertiary);
+}
+
+/* macOS Confirmation Modal */
+.modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 16px;
+  animation: modal-fade 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes modal-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.modal-card {
+  width: 100%;
+  max-width: 440px;
+  background: var(--bg-window);
+  border: 1px solid var(--border-specular);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-window);
+  padding: 22px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  animation: modal-pop 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes modal-pop {
+  from { opacity: 0; transform: scale(0.94); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.modal-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.modal-icon-bubble {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: rgba(255, 59, 48, 0.12);
+  color: var(--accent-red);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.modal-text {
+  flex: 1;
+}
+
+.modal-text h3 {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.3px;
+  margin-bottom: 4px;
+}
+
+.modal-text p {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+.modal-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.modal-btn {
+  padding: 8px 18px;
+  font-size: 12.5px;
+}
+
+.modal-btn-destructive {
+  background: var(--accent-red);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 2px 8px rgba(255, 59, 48, 0.35);
+}
+
+.modal-btn-destructive:hover {
+  background: #ff453a;
+  box-shadow: 0 4px 14px rgba(255, 59, 48, 0.5);
 }
