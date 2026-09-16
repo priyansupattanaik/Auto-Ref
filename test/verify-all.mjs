@@ -51,8 +51,12 @@ if (!manifest.permissions.includes('nativeMessaging')) {
 if (manifest.action.default_popup) {
   throw new Error('Action must not define default_popup so side_panel opens on click');
 }
+if (!manifest.web_accessible_resources || !manifest.web_accessible_resources.some((r) => r.resources.includes('icons/icon32.png'))) {
+  throw new Error('Manifest missing web_accessible_resources for extension icons');
+}
 console.log('✓ Manifest side_panel configured correctly:', manifest.side_panel);
 console.log('✓ Manifest permissions include sidePanel and nativeMessaging');
+console.log('✓ Manifest web_accessible_resources includes extension icons');
 
 console.log('\n--- 3. Native Host Manifest & Executable Checks ---');
 const hostManifest = JSON.parse(readFileSync(path.join(ROOT, 'native-host/com.autoref.server.json'), 'utf8'));

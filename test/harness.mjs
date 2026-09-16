@@ -617,6 +617,25 @@ const PROF = { urn: 'u1', name: 'Ada Lovelace', role: 'SE', company: 'AE' };
   orb.update({ state: 'connecting', size: 64, speed: 1, dark: true, paused: false });
   t(orb.state === 'connecting' && orb.size === 64 && orb.speed === 1, 'update batch updates props');
 
+  // Theme support (Libraries.dev compatibility: 'dark', 'light', 'auto')
+  const themeOrb = new TO({ theme: 'dark' });
+  t(themeOrb.theme === 'dark' && themeOrb.dark === true, 'theme dark maps to dark=true');
+  themeOrb.setTheme('light');
+  t(themeOrb.theme === 'light' && themeOrb.dark === false, 'setTheme light maps to dark=false');
+  themeOrb.destroy();
+
+  // Animation loop idempotency check (no duplicate RAF loops when already running)
+  const loopOrb = new TO({ paused: false });
+  const initialRunning = loopOrb.running;
+  loopOrb._start();
+  loopOrb._start();
+  t(loopOrb.running === true, '_start is idempotent and does not create duplicate running loops');
+  loopOrb.setPaused(true);
+  t(loopOrb.running === false && loopOrb.paused === true, 'setPaused(true) stops loop');
+  loopOrb.setPaused(false);
+  t(loopOrb.running === true && loopOrb.paused === false, 'setPaused(false) restarts loop');
+  loopOrb.destroy();
+
   // Static mount & create helper
   const container = document.createElement('div');
   const mountedOrb = TO.mount(container, { state: 'weaving', size: 20 });

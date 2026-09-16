@@ -224,7 +224,7 @@
       if (s.runState.running) {
         if (s.runState.phase === 'scrape_queue' || s.runState.phase === 'searching') {
           targetState = 'searching';
-        } else if (s.runState.phase === 'compose' || s.runState.phase === 'generating' || s.runState.phase === 'ai') {
+        } else if (s.runState.phase === 'generate_message' || s.runState.phase === 'compose' || s.runState.phase === 'generating' || s.runState.phase === 'ai') {
           targetState = 'composing';
         } else {
           targetState = 'working';
